@@ -1,21 +1,27 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { ProjectShell } from "@/components/project-shell";
+import { ScriptDraftHistory } from "@/components/script-draft-history";
 import { getProjectById } from "@/modules/projects/repository";
 import { generateStoryForProjectAction } from "@/modules/scripts/actions";
 
 type ProjectPageProps = {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ draftId?: string; compareDraftId?: string }>;
 };
 
-export default async function ProjectDetailPage({ params }: ProjectPageProps) {
+export default async function ProjectDetailPage({ params, searchParams }: ProjectPageProps) {
   noStore();
   const { projectId } = await params;
+  const { draftId, compareDraftId } = await searchParams;
   const project = await getProjectById(projectId);
 
   if (!project) {
     notFound();
   }
+
+  const activeDraft = project.scriptDrafts.find((draft) => draft.id === project.activeScriptDraftId) ?? null;
+  const hasApprovedDraft = Boolean(project.approvedScriptDraftId);
 
   return (
     <main className="container">
@@ -33,7 +39,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       <section className="card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Story Engine (Milestone 2)</h2>
         <p className="subtitle" style={{ marginTop: 0 }}>
-          Generate and save structured story output for this project.
+          Generate and save a new script draft version for this project.
         </p>
         <form action={generateStoryForProjectAction} className="grid">
           <input type="hidden" name="projectId" value={project.id} />
@@ -94,36 +100,37 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
           </label>
 
           <button type="submit" className="card" style={{ cursor: "pointer", width: 280 }}>
-            Generate + Save Story Draft
+            Generate + Save New Draft Version
           </button>
         </form>
       </section>
 
-      {project.storyDraft ? (
+      {activeDraft ? (
         <section className="card" style={{ marginBottom: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Saved Story Output</h2>
+          <h2 style={{ marginTop: 0 }}>Active Script Draft</h2>
           <p className="subtitle">
-            Draft ID: {project.storyDraft.id} · Generated: {new Date(project.storyDraft.createdAt).toLocaleString()}
+            Draft ID: {activeDraft.id} · Version: {activeDraft.versionLabel} · Generated:{" "}
+            {new Date(activeDraft.createdAt).toLocaleString()}
           </p>
 
           <h3>Title options</h3>
           <ul>
-            {project.storyDraft.titleOptions.map((title) => (
+            {activeDraft.titleOptions.map((title) => (
               <li key={title}>{title}</li>
             ))}
           </ul>
 
           <h3>Hook</h3>
-          <p>{project.storyDraft.hook}</p>
+          <p>{activeDraft.hook}</p>
 
           <h3>Full narration draft</h3>
           <pre className="card" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-            {project.storyDraft.fullNarrationDraft}
+            {activeDraft.fullNarrationDraft}
           </pre>
 
           <h3>Scene-by-scene outline</h3>
           <ol>
-            {project.storyDraft.sceneOutline.map((scene) => (
+            {activeDraft.sceneOutline.map((scene) => (
               <li key={scene.sceneNumber} style={{ marginBottom: 8 }}>
                 <strong>{scene.heading}</strong>
                 <p className="subtitle" style={{ margin: "4px 0 0" }}>
@@ -135,12 +142,30 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
         </section>
       ) : (
         <section className="card" style={{ marginBottom: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Saved Story Output</h2>
+          <h2 style={{ marginTop: 0 }}>Active Script Draft</h2>
           <p className="subtitle">No story draft yet. Use the form above to generate and save one.</p>
         </section>
       )}
 
-      <ProjectShell />
+      <ScriptDraftHistory
+        projectId={project.id}
+        scriptDrafts={project.scriptDrafts}
+        activeDraftId={project.activeScriptDraftId}
+        approvedDraftId={project.approvedScriptDraftId}
+        selectedDraftId={draftId}
+        compareDraftId={compareDraftId}
+      />
+
+      <section className="card" style={{ marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>Scene Planning Gate</h2>
+        {hasApprovedDraft ? (
+          <p className="subtitle">✅ Scene planning is unlocked because a script draft is approved.</p>
+        ) : (
+          <p className="subtitle">🔒 Scene planning is locked. Approve one script draft to continue.</p>
+        )}
+      </section>
+
+      <ProjectShell isScriptApproved={hasApprovedDraft} />
     </main>
   );
 }
