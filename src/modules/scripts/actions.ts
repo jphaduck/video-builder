@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { generateStoryDraft } from "@/modules/scripts/service";
-import { saveStoryDraftForProject } from "@/modules/projects/repository";
+import { approveScriptDraft, saveStoryDraftForProject, setActiveScriptDraft } from "@/modules/projects/repository";
 
 function parseRuntime(rawValue: FormDataEntryValue | null): number {
   const parsed = Number(rawValue ?? 10);
@@ -40,5 +40,27 @@ export async function generateStoryForProjectAction(formData: FormData): Promise
   });
 
   const updatedProject = await saveStoryDraftForProject(projectId, storyInput, generatedStory);
+  revalidatePath(`/projects/${updatedProject.id}`);
+}
+
+export async function setActiveScriptDraftAction(formData: FormData): Promise<void> {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const scriptDraftId = String(formData.get("scriptDraftId") ?? "").trim();
+  if (!projectId || !scriptDraftId) {
+    throw new Error("Project ID and script draft ID are required.");
+  }
+
+  const updatedProject = await setActiveScriptDraft(projectId, scriptDraftId);
+  revalidatePath(`/projects/${updatedProject.id}`);
+}
+
+export async function approveScriptDraftAction(formData: FormData): Promise<void> {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const scriptDraftId = String(formData.get("scriptDraftId") ?? "").trim();
+  if (!projectId || !scriptDraftId) {
+    throw new Error("Project ID and script draft ID are required.");
+  }
+
+  const updatedProject = await approveScriptDraft(projectId, scriptDraftId);
   revalidatePath(`/projects/${updatedProject.id}`);
 }

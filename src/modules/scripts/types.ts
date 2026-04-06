@@ -17,5 +17,6 @@ export interface GeneratedStoryDraft {
   titleOptions: string[];
   hook: string;
   narrationDraft: string;
+  notes?: string;
   sceneOutline: GeneratedSceneOutlineItem[];
 }

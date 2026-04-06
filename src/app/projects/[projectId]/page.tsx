@@ -118,7 +118,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
 
           <h3>Full narration draft</h3>
           <pre className="card" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-            {project.storyDraft.narrationDraft}
+            {project.storyDraft.fullNarrationDraft}
           </pre>
 
           <h3>Scene-by-scene outline</h3>

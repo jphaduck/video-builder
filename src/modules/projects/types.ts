@@ -30,12 +30,17 @@ export interface StorySceneOutlineItem {
   summary: string;
 }
 
+export type ScriptDraftApprovalStatus = "pending" | "approved";
+
 export interface StoryDraftRecord {
   id: string;
   createdAt: string;
+  versionLabel: string;
   titleOptions: string[];
   hook: string;
-  narrationDraft: string;
+  fullNarrationDraft: string;
+  notes?: string;
+  approvalStatus: ScriptDraftApprovalStatus;
   sceneOutline: StorySceneOutlineItem[];
 }
 
@@ -46,6 +51,10 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
   storyInput: StoryInput;
+  scriptDrafts: StoryDraftRecord[];
+  activeScriptDraftId?: string;
+  approvedScriptDraftId?: string;
+  latestScriptDraftId?: string;
   storyDraft?: StoryDraftRecord;
   workflow: ProjectWorkflowRefs;
 }

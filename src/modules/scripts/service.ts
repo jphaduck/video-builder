@@ -73,6 +73,7 @@ export function generateStoryDraft(input: StoryGenerationInput): GeneratedStoryD
     titleOptions,
     hook,
     narrationDraft,
+    notes: `Generated from structured inputs (${input.targetRuntimeMin} min target, tone: ${tone}).`,
     sceneOutline,
   };
 }
