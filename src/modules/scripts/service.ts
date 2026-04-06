@@ -1,5 +1,5 @@
 import { getOpenAIClient } from "@/lib/ai";
-import type { GeneratedStoryDraft, StoryInput, StoryOutput } from "@/modules/scripts/types";
+import type { GeneratedStoryDraft, StoryGenerationInput, StoryOutput } from "@/modules/scripts/types";
 
 const STORY_SYSTEM_PROMPT = `
 You are a senior YouTube story writer.
@@ -76,11 +76,11 @@ function countSentences(value: string): number {
     .filter(Boolean).length;
 }
 
-function normalize(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
+function normalize(value: string | undefined): string {
+  return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function hasEchoedInput(output: string, input: StoryInput): boolean {
+function hasEchoedInput(output: string, input: StoryGenerationInput): boolean {
   const normalizedOutput = normalize(output);
   const candidates = [input.theme, input.premise, input.tone, input.plotNotes]
     .map((value) => normalize(value))
@@ -89,7 +89,7 @@ function hasEchoedInput(output: string, input: StoryInput): boolean {
   return candidates.some((candidate) => normalizedOutput.includes(candidate));
 }
 
-function validateCreativeOutput(output: StoryOutput, input: StoryInput): void {
+function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput): void {
   if (output.titleOptions.length !== 3) {
     throw new Error("OpenAI response must include exactly 3 title options.");
   }
@@ -104,7 +104,7 @@ function validateCreativeOutput(output: StoryOutput, input: StoryInput): void {
   }
 
   const narrativeWordCount = output.script.split(/\s+/).filter(Boolean).length;
-  const minWords = Math.max(350, Math.round(input.targetRuntime * 90));
+  const minWords = Math.max(350, Math.round(input.targetRuntimeMin * 90));
   if (narrativeWordCount < minWords) {
     throw new Error("OpenAI response script is too short for target runtime.");
   }
@@ -133,20 +133,22 @@ function buildSceneOutline(script: string): GeneratedStoryDraft["sceneOutline"] 
   }));
 }
 
-export async function generateStoryDraft(input: StoryInput): Promise<GeneratedStoryDraft> {
+export async function generateStoryDraft(input: StoryGenerationInput): Promise<GeneratedStoryDraft> {
   const openai = getOpenAIClient();
 
   const userPrompt = `
+Project name: ${input.projectName}
 Theme: ${input.theme}
 Premise: ${input.premise}
 Plot notes: ${input.plotNotes}
 Tone: ${input.tone}
-Target runtime (minutes): ${input.targetRuntime}
+Target runtime (minutes): ${input.targetRuntimeMin}
 `.trim();
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     temperature: 0.7,
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: STORY_SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
@@ -162,8 +164,10 @@ Target runtime (minutes): ${input.targetRuntime}
   validateCreativeOutput(output, input);
 
   return {
-    ...output,
-    notes: `Generated with gpt-4o for ${input.targetRuntime} minute target runtime.`,
+    titleOptions: output.titleOptions,
+    hook: output.hook,
+    narrationDraft: output.script,
+    notes: `Generated with gpt-4o for ${input.targetRuntimeMin} minute target runtime.`,
     sceneOutline: buildSceneOutline(output.script),
   };
 }

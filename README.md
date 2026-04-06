@@ -12,35 +12,41 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 2 foundation scaffold is in progress.
+Phase 2 story generation workflow is in progress.
 
-Completed in Milestone 1:
+Completed foundation work:
 - project persistence using a file-backed JSON store (`data/projects.json`)
 - project list route at `/projects`
 - project create and save flow at `/projects/new`
 - project detail loading at `/projects/[projectId]`
+- story draft generation, version history, active draft switching, and approval gating
 
 Implemented scaffold routes:
 - `/` homepage
 - `/projects` project list page
-- `/projects/new` new project page (placeholder form)
-- `/projects/[projectId]` project detail page with placeholder sections for script, scenes, images, voiceover, captions, and render
+- `/projects/new` new project page
+- `/projects/[projectId]` project detail page with story generation, script draft versioning, and workflow placeholders for later milestones
 
 ## Run locally
 1. Install dependencies:
    ```bash
    npm install
    ```
-2. Start dev server:
+2. Add your OpenAI API key to `.env.local`:
+   ```bash
+   OPENAI_API_KEY=your_key_here
+   ```
+3. Start dev server:
    ```bash
    npm run dev
    ```
-3. Open:
+4. Open:
    - http://localhost:3000/
-   - http://localhost:3000/projects/new
-   - http://localhost:3000/projects/demo-project
+   - http://localhost:3000/projects
+   - create a project at http://localhost:3000/projects/new
+   - open the generated project detail page after saving
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- Generation and rendering logic are not implemented yet.
+- Story draft generation is implemented, but scenes/assets/narration/captions/rendering are still scaffolded for later milestones.
 - Project persistence is currently local/file-backed and planned to move to a production storage backend in a later milestone.

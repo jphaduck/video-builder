@@ -30,7 +30,7 @@ export async function generateStoryForProjectAction(formData: FormData): Promise
   };
 
   const projectName = String(formData.get("projectName") ?? "").trim();
-  const generatedStory = generateStoryDraft({
+  const generatedStory = await generateStoryDraft({
     projectName: projectName || "Untitled Project",
     premise: storyInput.premise,
     theme: storyInput.theme,
