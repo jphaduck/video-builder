@@ -80,3 +80,8 @@
 - Decision: Implement initial project persistence with a `projects` repository backed by `data/projects.json`.
 - Why: Smallest clean step to enable create/list/load flows without committing early to a database driver.
 - Impact: Repository API should remain stable so storage backend can later move to Postgres/Supabase with minimal route changes.
+
+## 2026-04-06 - Milestone 2 story engine uses modular local generator service
+- Decision: Implement story generation through a dedicated scripts service module that returns a structured story draft (title options, hook, narration draft, scene outline) and persist results on the project record.
+- Why: Delivers Milestone 2 end-to-end behavior now while keeping provider-facing generation logic isolated for future model integrations.
+- Impact: Future AI provider integrations can swap generation internals without rewriting project routes or persistence wiring.

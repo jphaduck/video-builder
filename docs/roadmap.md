@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1 - Planning lock (current)
+## Phase 1 - Planning lock
 Goal: convert high-level concept into implementation-ready requirements.
 
 Deliverables:
@@ -13,7 +13,7 @@ Exit criteria:
 - docs are specific enough to implement without major guessing
 - v1 non-goals clearly listed
 
-## Phase 2 - App foundation
+## Phase 2 - App foundation (current)
 Goal: ship technical foundation for single-user project workflow.
 
 Deliverables:

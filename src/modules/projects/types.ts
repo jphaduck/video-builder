@@ -20,7 +20,23 @@ export interface StoryInput {
   premise: string;
   theme?: string;
   tone?: string;
+  plotNotes?: string;
   targetRuntimeMin?: number;
+}
+
+export interface StorySceneOutlineItem {
+  sceneNumber: number;
+  heading: string;
+  summary: string;
+}
+
+export interface StoryDraftRecord {
+  id: string;
+  createdAt: string;
+  titleOptions: string[];
+  hook: string;
+  narrationDraft: string;
+  sceneOutline: StorySceneOutlineItem[];
 }
 
 export interface ProjectRecord {
@@ -30,6 +46,7 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
   storyInput: StoryInput;
+  storyDraft?: StoryDraftRecord;
   workflow: ProjectWorkflowRefs;
 }
 

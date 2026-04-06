@@ -1,0 +1,44 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { generateStoryDraft } from "@/modules/scripts/service";
+import { saveStoryDraftForProject } from "@/modules/projects/repository";
+
+function parseRuntime(rawValue: FormDataEntryValue | null): number {
+  const parsed = Number(rawValue ?? 10);
+  if (!Number.isFinite(parsed)) {
+    return 10;
+  }
+
+  return Math.min(20, Math.max(5, Math.round(parsed)));
+}
+
+export async function generateStoryForProjectAction(formData: FormData): Promise<void> {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const premise = String(formData.get("premise") ?? "").trim();
+
+  if (!projectId || !premise) {
+    throw new Error("Project ID and premise are required to generate a story draft.");
+  }
+
+  const storyInput = {
+    premise,
+    theme: String(formData.get("theme") ?? "").trim() || undefined,
+    tone: String(formData.get("tone") ?? "").trim() || undefined,
+    plotNotes: String(formData.get("plotNotes") ?? "").trim() || undefined,
+    targetRuntimeMin: parseRuntime(formData.get("targetRuntimeMin")),
+  };
+
+  const projectName = String(formData.get("projectName") ?? "").trim();
+  const generatedStory = generateStoryDraft({
+    projectName: projectName || "Untitled Project",
+    premise: storyInput.premise,
+    theme: storyInput.theme,
+    tone: storyInput.tone,
+    plotNotes: storyInput.plotNotes,
+    targetRuntimeMin: storyInput.targetRuntimeMin ?? 10,
+  });
+
+  const updatedProject = await saveStoryDraftForProject(projectId, storyInput, generatedStory);
+  revalidatePath(`/projects/${updatedProject.id}`);
+}

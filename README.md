@@ -14,8 +14,15 @@ The app is designed to:
 ## Current status
 Phase 2 foundation scaffold is in progress.
 
+Completed in Milestone 1:
+- project persistence using a file-backed JSON store (`data/projects.json`)
+- project list route at `/projects`
+- project create and save flow at `/projects/new`
+- project detail loading at `/projects/[projectId]`
+
 Implemented scaffold routes:
 - `/` homepage
+- `/projects` project list page
 - `/projects/new` new project page (placeholder form)
 - `/projects/[projectId]` project detail page with placeholder sections for script, scenes, images, voiceover, captions, and render
 
@@ -35,4 +42,5 @@ Implemented scaffold routes:
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- Generation, rendering, and persistence logic are not implemented yet.
+- Generation and rendering logic are not implemented yet.
+- Project persistence is currently local/file-backed and planned to move to a production storage backend in a later milestone.

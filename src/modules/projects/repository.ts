@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CreateProjectInput, ProjectRecord } from "@/modules/projects/types";
+import type { GeneratedStoryDraft } from "@/modules/scripts/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
@@ -60,6 +61,7 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
     updatedAt: now,
     storyInput: {
       premise: input.premise,
+      targetRuntimeMin: 10,
     },
     workflow: {
       scriptDraftIds: [],
@@ -76,4 +78,64 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectR
   await writeStore(store);
 
   return project;
+}
+
+type SaveStoryInput = {
+  premise: string;
+  theme?: string;
+  tone?: string;
+  plotNotes?: string;
+  targetRuntimeMin?: number;
+};
+
+export async function saveStoryDraftForProject(
+  projectId: string,
+  storyInput: SaveStoryInput,
+  generatedStory: GeneratedStoryDraft,
+): Promise<ProjectRecord> {
+  const store = await readStore();
+  const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+
+  if (projectIndex < 0) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  const existing = store.projects[projectIndex];
+  const now = new Date().toISOString();
+  const storyDraftId = randomUUID();
+
+  const updatedProject: ProjectRecord = {
+    ...existing,
+    status: "script_ready",
+    updatedAt: now,
+    storyInput: {
+      ...existing.storyInput,
+      premise: storyInput.premise,
+      theme: storyInput.theme,
+      tone: storyInput.tone,
+      plotNotes: storyInput.plotNotes,
+      targetRuntimeMin: storyInput.targetRuntimeMin,
+    },
+    storyDraft: {
+      id: storyDraftId,
+      createdAt: now,
+      titleOptions: generatedStory.titleOptions,
+      hook: generatedStory.hook,
+      narrationDraft: generatedStory.narrationDraft,
+      sceneOutline: generatedStory.sceneOutline,
+    },
+    workflow: {
+      scriptDraftIds: [...(existing.workflow?.scriptDraftIds ?? []), storyDraftId],
+      sceneIds: existing.workflow?.sceneIds ?? [],
+      assetIds: existing.workflow?.assetIds ?? [],
+      narrationTrackIds: existing.workflow?.narrationTrackIds ?? [],
+      captionTrackIds: existing.workflow?.captionTrackIds ?? [],
+      renderJobIds: existing.workflow?.renderJobIds ?? [],
+    },
+  };
+
+  store.projects[projectIndex] = updatedProject;
+  await writeStore(store);
+
+  return updatedProject;
 }

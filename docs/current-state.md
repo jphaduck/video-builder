@@ -1,10 +1,10 @@
 # Current State
 
 Current branch:
-main
+work
 
 Current phase:
-Phase 2 - Milestone 1 complete (project persistence)
+Phase 2 - Milestone 2 complete (story engine scaffold)
 
 What exists:
 - repo created
@@ -32,21 +32,30 @@ What exists:
   - captions
   - rendering
   - settings
+- story engine scaffold for saved projects:
+  - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
+  - modular script service for story draft generation
+  - persisted story draft output per project including:
+    - title options
+    - hook
+    - full narration draft
+    - scene-by-scene outline
+  - story output displayed on the project detail page after generation
 
 What does not exist yet:
 - database implementation
-- generation pipeline implementation
+- production model/provider-backed generation pipeline
 - render pipeline implementation
-- persistence for script/scene/image/voice/caption/render artifacts
+- persistence for scene/image/voice/caption/render artifacts
 - real workflow state machine in app logic
 
 Current priority:
-Move from file-backed local storage to production-ready data modeling and storage abstractions while keeping existing routes stable.
+Move from local story generation scaffold to richer versioned story artifacts and prepare repository abstraction for database migration.
 
 Next 3 tasks:
-1. add draft/version persistence primitives linked to project IDs
+1. add explicit script draft version records with compare/revert primitives
 2. introduce repository abstraction that can swap JSON store for Postgres/Supabase
-3. implement richer project metadata fields from the product spec
+3. implement script approval gating before scene planning
 
 Files to read first next session:
 - AGENTS.md
