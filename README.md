@@ -1,8 +1,8 @@
 # Story Video Studio
 
-This app creates YouTube-ready narrated slideshow-style story videos from a theme, premise, and plot notes.
+Story Video Studio creates YouTube-ready narrated slideshow-style story videos from a theme, premise, and plot notes.
 
-The app should:
+The app is designed to:
 - generate a title and hook
 - generate a full script for a 5 to 20 minute video
 - split the script into scenes
@@ -11,8 +11,28 @@ The app should:
 - generate captions
 - assemble the final video with motion, transitions, subtitles, music, and export
 
-Target outcome:
-A user enters a story idea and gets a strong draft video that still allows human review before final export.
+## Current status
+Phase 2 foundation scaffold is in progress.
 
-Current status:
-Planning and repo setup.
+Implemented scaffold routes:
+- `/` homepage
+- `/projects/new` new project page (placeholder form)
+- `/projects/[projectId]` project detail page with placeholder sections for script, scenes, images, voiceover, captions, and render
+
+## Run locally
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start dev server:
+   ```bash
+   npm run dev
+   ```
+3. Open:
+   - http://localhost:3000/
+   - http://localhost:3000/projects/new
+   - http://localhost:3000/projects/demo-project
+
+## Notes
+- This is a slideshow storytelling product, not a full animation product.
+- Generation, rendering, and persistence logic are not implemented yet.
