@@ -1,8 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { parseTitleOptionsText } from "@/modules/scripts/draft-utils";
+import {
+  approveScriptDraft,
+  rejectScriptDraft,
+  saveManualScriptDraftForProject,
+  saveStoryDraftForProject,
+  setActiveScriptDraft,
+} from "@/modules/projects/repository";
 import { generateStoryDraft } from "@/modules/scripts/service";
-import { approveScriptDraft, saveStoryDraftForProject, setActiveScriptDraft } from "@/modules/projects/repository";
 
 function parseRuntime(rawValue: FormDataEntryValue | null): number {
   const parsed = Number(rawValue ?? 10);
@@ -11,6 +18,16 @@ function parseRuntime(rawValue: FormDataEntryValue | null): number {
   }
 
   return Math.min(20, Math.max(5, Math.round(parsed)));
+}
+
+function buildProjectRedirectPath(projectId: string, scriptDraftId?: string): string {
+  const params = new URLSearchParams();
+  if (scriptDraftId) {
+    params.set("draftId", scriptDraftId);
+  }
+
+  const query = params.toString();
+  return query ? `/projects/${projectId}?${query}` : `/projects/${projectId}`;
 }
 
 export async function generateStoryForProjectAction(formData: FormData): Promise<void> {
@@ -40,7 +57,7 @@ export async function generateStoryForProjectAction(formData: FormData): Promise
   });
 
   const updatedProject = await saveStoryDraftForProject(projectId, storyInput, generatedStory);
-  revalidatePath(`/projects/${updatedProject.id}`);
+  redirect(buildProjectRedirectPath(updatedProject.id, updatedProject.activeScriptDraftId));
 }
 
 export async function setActiveScriptDraftAction(formData: FormData): Promise<void> {
@@ -51,7 +68,7 @@ export async function setActiveScriptDraftAction(formData: FormData): Promise<vo
   }
 
   const updatedProject = await setActiveScriptDraft(projectId, scriptDraftId);
-  revalidatePath(`/projects/${updatedProject.id}`);
+  redirect(buildProjectRedirectPath(updatedProject.id, scriptDraftId));
 }
 
 export async function approveScriptDraftAction(formData: FormData): Promise<void> {
@@ -62,5 +79,43 @@ export async function approveScriptDraftAction(formData: FormData): Promise<void
   }
 
   const updatedProject = await approveScriptDraft(projectId, scriptDraftId);
-  revalidatePath(`/projects/${updatedProject.id}`);
+  redirect(buildProjectRedirectPath(updatedProject.id, scriptDraftId));
+}
+
+export async function rejectScriptDraftAction(formData: FormData): Promise<void> {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const scriptDraftId = String(formData.get("scriptDraftId") ?? "").trim();
+  if (!projectId || !scriptDraftId) {
+    throw new Error("Project ID and script draft ID are required.");
+  }
+
+  const updatedProject = await rejectScriptDraft(projectId, scriptDraftId);
+  redirect(buildProjectRedirectPath(updatedProject.id, scriptDraftId));
+}
+
+export async function saveEditedScriptDraftAction(formData: FormData): Promise<void> {
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const sourceDraftId = String(formData.get("sourceDraftId") ?? "").trim() || undefined;
+  const hook = String(formData.get("hook") ?? "").trim();
+  const narrationDraft = String(formData.get("narrationDraft") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim() || undefined;
+  const titleOptions = parseTitleOptionsText(String(formData.get("titleOptionsText") ?? ""));
+
+  if (!projectId || !hook || !narrationDraft) {
+    throw new Error("Project ID, hook, and narration draft are required.");
+  }
+
+  if (titleOptions.length !== 3) {
+    throw new Error("Provide exactly 3 title options, one per line.");
+  }
+
+  const updatedProject = await saveManualScriptDraftForProject(projectId, {
+    titleOptions,
+    hook,
+    narrationDraft,
+    notes,
+    derivedFromDraftId: sourceDraftId,
+  });
+
+  redirect(buildProjectRedirectPath(updatedProject.id, updatedProject.activeScriptDraftId));
 }

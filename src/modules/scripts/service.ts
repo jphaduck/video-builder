@@ -1,4 +1,5 @@
 import { getOpenAIClient } from "@/lib/ai";
+import { buildSceneOutline, countWords } from "@/modules/scripts/draft-utils";
 import type { GeneratedStoryDraft, StoryGenerationInput, StoryOutput } from "@/modules/scripts/types";
 
 const STORY_SYSTEM_PROMPT = `
@@ -103,7 +104,7 @@ function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput
     throw new Error("OpenAI response must use second-person narrator voice.");
   }
 
-  const narrativeWordCount = output.script.split(/\s+/).filter(Boolean).length;
+  const narrativeWordCount = countWords(output.script);
   const minWords = Math.max(350, Math.round(input.targetRuntimeMin * 90));
   if (narrativeWordCount < minWords) {
     throw new Error("OpenAI response script is too short for target runtime.");
@@ -113,24 +114,6 @@ function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput
   if (hasEchoedInput(fullOutput, input)) {
     throw new Error("OpenAI response echoed input text instead of generating original prose.");
   }
-}
-
-function buildSceneOutline(script: string): GeneratedStoryDraft["sceneOutline"] {
-  const paragraphs = script
-    .split(/\n{2,}/)
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .slice(0, 12);
-
-  if (paragraphs.length === 0) {
-    return [];
-  }
-
-  return paragraphs.map((paragraph, index) => ({
-    sceneNumber: index + 1,
-    heading: `Scene ${index + 1}`,
-    summary: paragraph.slice(0, 240),
-  }));
 }
 
 export async function generateStoryDraft(input: StoryGenerationInput): Promise<GeneratedStoryDraft> {

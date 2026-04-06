@@ -1,10 +1,7 @@
 # Current State
 
-Current branch:
-work
-
 Current phase:
-Phase 2 - Milestone 2 complete (story engine scaffold)
+Phase 4 is next. Phase 3 script workflow is complete.
 
 What exists:
 - repo created
@@ -16,46 +13,34 @@ What exists:
   - create project from `/projects/new`
   - list saved projects at `/projects`
   - load project detail at `/projects/[projectId]`
-- project detail page with placeholder workflow UI sections for:
-  - script
-  - scenes
-  - assets/images
-  - narration/voiceover
-  - captions
-  - render
-- typed module structure for:
-  - projects
-  - scripts
-  - scenes
-  - assets
-  - narration
-  - captions
-  - rendering
-  - settings
-- story engine scaffold for saved projects:
+- script workflow for saved projects:
   - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
   - modular script service for story draft generation
-  - persisted story draft output per project including:
+  - persisted script draft versions per project including:
     - title options
     - hook
     - full narration draft
     - scene-by-scene outline
-  - story output displayed on the project detail page after generation
+    - generation source metadata
+  - draft comparison and active-draft switching
+  - manual script editing that saves as a new version
+  - explicit approve/reject gate before scene planning unlocks
 
 What does not exist yet:
 - database implementation
 - production model/provider-backed generation pipeline
+- scene planning implementation
+- image generation implementation
+- voice and caption implementation
 - render pipeline implementation
-- persistence for scene/image/voice/caption/render artifacts
-- real workflow state machine in app logic
 
 Current priority:
-Move from local story generation scaffold to richer versioned story artifacts and prepare repository abstraction for database migration.
+Begin Milestone 4 by turning an approved script draft into an editable scene plan with pacing controls and approval gating.
 
 Next 3 tasks:
-1. add explicit script draft version records with compare/revert primitives
-2. introduce repository abstraction that can swap JSON store for Postgres/Supabase
-3. implement script approval gating before scene planning
+1. persist scene records with duration targets and visual intent fields
+2. generate a first-pass scene plan from the approved script draft
+3. add scene approval state before image generation can begin
 
 Files to read first next session:
 - AGENTS.md

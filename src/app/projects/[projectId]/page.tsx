@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { ProjectShell } from "@/components/project-shell";
+import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
+import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { generateStoryForProjectAction } from "@/modules/scripts/actions";
 
@@ -20,7 +22,10 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     notFound();
   }
 
-  const activeDraft = project.scriptDrafts.find((draft) => draft.id === project.activeScriptDraftId) ?? null;
+  const selectedDraft =
+    project.scriptDrafts.find((draft) => draft.id === (draftId ?? project.activeScriptDraftId)) ??
+    project.scriptDrafts.at(-1) ??
+    null;
   const hasApprovedDraft = Boolean(project.approvedScriptDraftId);
 
   return (
@@ -37,9 +42,9 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
       </p>
 
       <section className="card" style={{ marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}>Story Engine (Milestone 2)</h2>
+        <h2 style={{ marginTop: 0 }}>Story Engine (Phase 3)</h2>
         <p className="subtitle" style={{ marginTop: 0 }}>
-          Generate and save a new script draft version for this project.
+          Generate new script versions, review them side by side, and approve exactly one before scene planning.
         </p>
         <form action={generateStoryForProjectAction} className="grid">
           <input type="hidden" name="projectId" value={project.id} />
@@ -105,32 +110,40 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         </form>
       </section>
 
-      {activeDraft ? (
+      {selectedDraft ? (
         <section className="card" style={{ marginBottom: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Active Script Draft</h2>
+          <h2 style={{ marginTop: 0 }}>Script Draft Workspace</h2>
           <p className="subtitle">
-            Draft ID: {activeDraft.id} · Version: {activeDraft.versionLabel} · Generated:{" "}
-            {new Date(activeDraft.createdAt).toLocaleString()}
+            Draft ID: {selectedDraft.id} · Version: {selectedDraft.versionLabel}
+            {selectedDraft.id === project.activeScriptDraftId ? " · Active" : ""}
+            {selectedDraft.id === project.approvedScriptDraftId ? " · Approved" : ""}
+            {" · "}
+            {selectedDraft.source === "manual_edit" ? "Manual edit" : "Generated"} · Created:{" "}
+            {new Date(selectedDraft.createdAt).toLocaleString()}
+          </p>
+          <p className="subtitle">
+            Status: {selectedDraft.approvalStatus} · Word count: {countWords(selectedDraft.fullNarrationDraft)} · Scene
+            outline items: {selectedDraft.sceneOutline.length}
           </p>
 
           <h3>Title options</h3>
           <ul>
-            {activeDraft.titleOptions.map((title) => (
+            {selectedDraft.titleOptions.map((title) => (
               <li key={title}>{title}</li>
             ))}
           </ul>
 
           <h3>Hook</h3>
-          <p>{activeDraft.hook}</p>
+          <p>{selectedDraft.hook}</p>
 
           <h3>Full narration draft</h3>
           <pre className="card" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-            {activeDraft.fullNarrationDraft}
+            {selectedDraft.fullNarrationDraft}
           </pre>
 
           <h3>Scene-by-scene outline</h3>
           <ol>
-            {activeDraft.sceneOutline.map((scene) => (
+            {selectedDraft.sceneOutline.map((scene) => (
               <li key={scene.sceneNumber} style={{ marginBottom: 8 }}>
                 <strong>{scene.heading}</strong>
                 <p className="subtitle" style={{ margin: "4px 0 0" }}>
@@ -139,10 +152,12 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
               </li>
             ))}
           </ol>
+
+          <ScriptDraftEditor projectId={project.id} draft={selectedDraft} />
         </section>
       ) : (
         <section className="card" style={{ marginBottom: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Active Script Draft</h2>
+          <h2 style={{ marginTop: 0 }}>Script Draft Workspace</h2>
           <p className="subtitle">No story draft yet. Use the form above to generate and save one.</p>
         </section>
       )}
@@ -157,7 +172,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
       />
 
       <section className="card" style={{ marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}>Scene Planning Gate</h2>
+        <h2 style={{ marginTop: 0 }}>Scene Planning Gate (Next Phase)</h2>
         {hasApprovedDraft ? (
           <p className="subtitle">✅ Scene planning is unlocked because a script draft is approved.</p>
         ) : (
