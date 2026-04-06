@@ -3,7 +3,13 @@ import "server-only";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { CreateProjectInput, ProjectRecord, StoryDraftRecord } from "@/modules/projects/types";
+import { buildSceneOutline } from "@/modules/scripts/draft-utils";
+import type {
+  CreateProjectInput,
+  ProjectRecord,
+  ScriptDraftApprovalStatus,
+  StoryDraftRecord,
+} from "@/modules/projects/types";
 import type { GeneratedStoryDraft } from "@/modules/scripts/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -28,9 +34,28 @@ function withStoreWriteLock<T>(operation: () => Promise<T>): Promise<T> {
   return queuedOperation;
 }
 
+function normalizeApprovalStatus(value: ScriptDraftApprovalStatus | undefined): ScriptDraftApprovalStatus {
+  if (value === "approved" || value === "rejected") {
+    return value;
+  }
+
+  return "pending";
+}
+
+function normalizeDraftRecord(draft: StoryDraftRecord): StoryDraftRecord {
+  return {
+    ...draft,
+    versionLabel: draft.versionLabel || "v1",
+    fullNarrationDraft: draft.fullNarrationDraft || "",
+    approvalStatus: normalizeApprovalStatus(draft.approvalStatus),
+    source: draft.source || "generated",
+    derivedFromDraftId: draft.derivedFromDraftId,
+  };
+}
+
 function normalizeScriptDraftFromLegacy(project: ProjectRecord): StoryDraftRecord[] {
   if (project.scriptDrafts?.length) {
-    return project.scriptDrafts;
+    return project.scriptDrafts.map(normalizeDraftRecord);
   }
 
   if (!project.storyDraft) {
@@ -43,7 +68,9 @@ function normalizeScriptDraftFromLegacy(project: ProjectRecord): StoryDraftRecor
       ...legacyDraft,
       versionLabel: legacyDraft.versionLabel || "v1",
       fullNarrationDraft: legacyDraft.fullNarrationDraft || legacyDraft.narrationDraft || "",
-      approvalStatus: legacyDraft.approvalStatus || "pending",
+      approvalStatus: normalizeApprovalStatus(legacyDraft.approvalStatus),
+      source: legacyDraft.source || "generated",
+      derivedFromDraftId: legacyDraft.derivedFromDraftId,
     },
   ];
 }
@@ -189,6 +216,7 @@ export async function saveStoryDraftForProject(
       fullNarrationDraft: generatedStory.narrationDraft,
       notes: generatedStory.notes,
       approvalStatus: "pending",
+      source: "generated",
       sceneOutline: generatedStory.sceneOutline,
     };
 
@@ -204,6 +232,62 @@ export async function saveStoryDraftForProject(
         plotNotes: storyInput.plotNotes,
         targetRuntimeMin: storyInput.targetRuntimeMin,
       },
+      storyDraft: newDraft,
+      scriptDrafts: [...existing.scriptDrafts, newDraft],
+      activeScriptDraftId: storyDraftId,
+      latestScriptDraftId: storyDraftId,
+      workflow: {
+        ...existing.workflow,
+        scriptDraftIds: [...existing.workflow.scriptDraftIds, storyDraftId],
+      },
+    };
+
+    store.projects[projectIndex] = updatedProject;
+    return updatedProject;
+  });
+}
+
+type SaveManualStoryDraftInput = {
+  titleOptions: string[];
+  hook: string;
+  narrationDraft: string;
+  notes?: string;
+  derivedFromDraftId?: string;
+};
+
+export async function saveManualScriptDraftForProject(
+  projectId: string,
+  input: SaveManualStoryDraftInput,
+): Promise<ProjectRecord> {
+  return updateStore((store) => {
+    const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+
+    if (projectIndex < 0) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    const existing = normalizeProject(store.projects[projectIndex]);
+    const now = new Date().toISOString();
+    const storyDraftId = randomUUID();
+    const nextVersionNumber = existing.scriptDrafts.length + 1;
+    const newDraft: StoryDraftRecord = {
+      id: storyDraftId,
+      createdAt: now,
+      versionLabel: `v${nextVersionNumber}`,
+      titleOptions: input.titleOptions,
+      hook: input.hook,
+      fullNarrationDraft: input.narrationDraft,
+      notes: input.notes,
+      approvalStatus: "pending",
+      source: "manual_edit",
+      derivedFromDraftId: input.derivedFromDraftId,
+      sceneOutline: buildSceneOutline(input.narrationDraft),
+    };
+
+    const updatedProject: ProjectRecord = {
+      ...existing,
+      status: existing.approvedScriptDraftId ? existing.status : "draft",
+      updatedAt: now,
       storyDraft: newDraft,
       scriptDrafts: [...existing.scriptDrafts, newDraft],
       activeScriptDraftId: storyDraftId,
@@ -258,7 +342,8 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
 
     const updatedDrafts = existing.scriptDrafts.map((draft) => ({
       ...draft,
-      approvalStatus: draft.id === scriptDraftId ? ("approved" as const) : ("pending" as const),
+      approvalStatus:
+        draft.id === scriptDraftId ? ("approved" as const) : draft.approvalStatus === "rejected" ? ("rejected" as const) : ("pending" as const),
     }));
     const approvedDraft = updatedDrafts.find((draft) => draft.id === scriptDraftId);
 
@@ -274,6 +359,43 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       approvedScriptDraftId: scriptDraftId,
       activeScriptDraftId: scriptDraftId,
       storyDraft: approvedDraft,
+    };
+
+    store.projects[projectIndex] = updatedProject;
+    return updatedProject;
+  });
+}
+
+export async function rejectScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
+  return updateStore((store) => {
+    const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+
+    if (projectIndex < 0) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    const existing = normalizeProject(store.projects[projectIndex]);
+    const rejectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
+
+    if (!rejectedDraft) {
+      throw new Error(`Script draft not found: ${scriptDraftId}`);
+    }
+
+    const updatedDrafts = existing.scriptDrafts.map((draft) =>
+      draft.id === scriptDraftId ? { ...draft, approvalStatus: "rejected" as const } : draft,
+    );
+    const approvedScriptDraftId =
+      existing.approvedScriptDraftId === scriptDraftId ? undefined : existing.approvedScriptDraftId;
+    const storyDraft = updatedDrafts.find((draft) => draft.id === existing.storyDraft?.id) ?? existing.storyDraft;
+
+    const updatedProject: ProjectRecord = {
+      ...existing,
+      status: approvedScriptDraftId ? "script_ready" : "draft",
+      updatedAt: new Date().toISOString(),
+      scriptDrafts: updatedDrafts,
+      approvedScriptDraftId,
+      storyDraft,
+      activeScriptDraftId: existing.activeScriptDraftId === scriptDraftId ? rejectedDraft.id : existing.activeScriptDraftId,
     };
 
     store.projects[projectIndex] = updatedProject;

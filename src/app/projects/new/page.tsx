@@ -4,7 +4,7 @@ export default function NewProjectPage() {
   return (
     <main className="container">
       <h1>New Project</h1>
-      <p className="subtitle">Create and save a project (generation is not implemented yet).</p>
+      <p className="subtitle">Create and save a project, then move into script generation and review.</p>
 
       <form action={createProjectAction} className="grid" style={{ maxWidth: 700 }}>
         <label className="card">

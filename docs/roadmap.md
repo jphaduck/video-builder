@@ -13,7 +13,7 @@ Exit criteria:
 - docs are specific enough to implement without major guessing
 - v1 non-goals clearly listed
 
-## Phase 2 - App foundation (current)
+## Phase 2 - App foundation
 Goal: ship technical foundation for single-user project workflow.
 
 Deliverables:
@@ -40,7 +40,7 @@ Deliverables:
 Exit criteria:
 - approved script required before scene planning can begin
 
-## Phase 4 - Scene planning + approval gate
+## Phase 4 - Scene planning + approval gate (current)
 Goal: convert script to editable scene plan with pacing control.
 
 Deliverables:

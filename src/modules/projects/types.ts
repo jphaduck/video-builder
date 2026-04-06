@@ -30,7 +30,8 @@ export interface StorySceneOutlineItem {
   summary: string;
 }
 
-export type ScriptDraftApprovalStatus = "pending" | "approved";
+export type ScriptDraftApprovalStatus = "pending" | "approved" | "rejected";
+export type StoryDraftSource = "generated" | "manual_edit";
 
 export interface StoryDraftRecord {
   id: string;
@@ -41,6 +42,8 @@ export interface StoryDraftRecord {
   fullNarrationDraft: string;
   notes?: string;
   approvalStatus: ScriptDraftApprovalStatus;
+  source: StoryDraftSource;
+  derivedFromDraftId?: string;
   sceneOutline: StorySceneOutlineItem[];
 }
 

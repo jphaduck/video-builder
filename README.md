@@ -12,20 +12,20 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 2 story generation workflow is in progress.
+Phase 3 script workflow is complete and the repo is ready to begin Milestone 4 scene planning.
 
 Completed foundation work:
 - project persistence using a file-backed JSON store (`data/projects.json`)
 - project list route at `/projects`
 - project create and save flow at `/projects/new`
 - project detail loading at `/projects/[projectId]`
-- story draft generation, version history, active draft switching, and approval gating
+- story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
 
-Implemented scaffold routes:
+Implemented routes:
 - `/` homepage
 - `/projects` project list page
 - `/projects/new` new project page
-- `/projects/[projectId]` project detail page with story generation, script draft versioning, and workflow placeholders for later milestones
+- `/projects/[projectId]` project detail page with story generation, script draft versioning, manual editing, and workflow placeholders for later milestones
 
 ## Run locally
 1. Install dependencies:
@@ -40,7 +40,11 @@ Implemented scaffold routes:
    ```bash
    npm run dev
    ```
-4. Open:
+4. Validate the repo before pushing changes:
+   ```bash
+   npm run validate
+   ```
+5. Open:
    - http://localhost:3000/
    - http://localhost:3000/projects
    - create a project at http://localhost:3000/projects/new
@@ -48,5 +52,5 @@ Implemented scaffold routes:
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- Story draft generation is implemented, but scenes/assets/narration/captions/rendering are still scaffolded for later milestones.
+- The script workflow through approval is implemented, but scene planning, assets, narration, captions, and rendering are still scaffolded for later milestones.
 - Project persistence is currently local/file-backed and planned to move to a production storage backend in a later milestone.
