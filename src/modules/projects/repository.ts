@@ -1,6 +1,6 @@
 import "server-only";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CreateProjectInput, ProjectRecord, StoryDraftRecord } from "@/modules/projects/types";
@@ -12,6 +12,21 @@ const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 type ProjectsStore = {
   projects: ProjectRecord[];
 };
+
+let storeWriteQueue: Promise<unknown> = Promise.resolve();
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+function withStoreWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+  const queuedOperation = storeWriteQueue.then(operation, operation);
+  storeWriteQueue = queuedOperation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queuedOperation;
+}
 
 function normalizeScriptDraftFromLegacy(project: ProjectRecord): StoryDraftRecord[] {
   if (project.scriptDrafts?.length) {
@@ -60,8 +75,13 @@ async function ensureStore(): Promise<void> {
 
   try {
     await readFile(PROJECTS_FILE, "utf8");
-  } catch {
-    await writeFile(PROJECTS_FILE, JSON.stringify({ projects: [] }, null, 2), "utf8");
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") {
+      await writeStoreFile({ projects: [] });
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -72,14 +92,27 @@ async function readStore(): Promise<ProjectsStore> {
   try {
     const parsed = JSON.parse(raw) as ProjectsStore;
     return { projects: parsed.projects ?? [] };
-  } catch {
-    return { projects: [] };
+  } catch (error) {
+    throw new Error(
+      `Failed to parse ${PROJECTS_FILE}: ${error instanceof Error ? error.message : "unknown error"}`,
+    );
   }
 }
 
-async function writeStore(store: ProjectsStore): Promise<void> {
-  await ensureStore();
-  await writeFile(PROJECTS_FILE, JSON.stringify(store, null, 2), "utf8");
+async function writeStoreFile(store: ProjectsStore): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+  const tempFile = path.join(DATA_DIR, `projects.${randomUUID()}.tmp`);
+  await writeFile(tempFile, JSON.stringify(store, null, 2), "utf8");
+  await rename(tempFile, PROJECTS_FILE);
+}
+
+async function updateStore<T>(mutator: (store: ProjectsStore) => Promise<T> | T): Promise<T> {
+  return withStoreWriteLock(async () => {
+    const store = await readStore();
+    const result = await mutator(store);
+    await writeStoreFile(store);
+    return result;
+  });
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {
@@ -96,32 +129,31 @@ export async function getProjectById(projectId: string): Promise<ProjectRecord |
 export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
   const now = new Date().toISOString();
 
-  const project: ProjectRecord = {
-    id: randomUUID(),
-    name: input.name,
-    status: "draft",
-    createdAt: now,
-    updatedAt: now,
-    storyInput: {
-      premise: input.premise,
-      targetRuntimeMin: 10,
-    },
-    scriptDrafts: [],
-    workflow: {
-      scriptDraftIds: [],
-      sceneIds: [],
-      assetIds: [],
-      narrationTrackIds: [],
-      captionTrackIds: [],
-      renderJobIds: [],
-    },
-  };
+  return updateStore((store) => {
+    const project: ProjectRecord = {
+      id: randomUUID(),
+      name: input.name,
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+      storyInput: {
+        premise: input.premise,
+        targetRuntimeMin: 10,
+      },
+      scriptDrafts: [],
+      workflow: {
+        scriptDraftIds: [],
+        sceneIds: [],
+        assetIds: [],
+        narrationTrackIds: [],
+        captionTrackIds: [],
+        renderJobIds: [],
+      },
+    };
 
-  const store = await readStore();
-  store.projects.push(project);
-  await writeStore(store);
-
-  return project;
+    store.projects.push(project);
+    return project;
+  });
 }
 
 type SaveStoryInput = {
@@ -137,117 +169,114 @@ export async function saveStoryDraftForProject(
   storyInput: SaveStoryInput,
   generatedStory: GeneratedStoryDraft,
 ): Promise<ProjectRecord> {
-  const store = await readStore();
-  const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+  return updateStore((store) => {
+    const projectIndex = store.projects.findIndex((project) => project.id === projectId);
 
-  if (projectIndex < 0) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
+    if (projectIndex < 0) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
 
-  const existing = normalizeProject(store.projects[projectIndex]);
-  const now = new Date().toISOString();
-  const storyDraftId = randomUUID();
-  const nextVersionNumber = existing.scriptDrafts.length + 1;
-  const newDraft: StoryDraftRecord = {
-    id: storyDraftId,
-    createdAt: now,
-    versionLabel: `v${nextVersionNumber}`,
-    titleOptions: generatedStory.titleOptions,
-    hook: generatedStory.hook,
-    fullNarrationDraft: generatedStory.narrationDraft,
-    notes: generatedStory.notes,
-    approvalStatus: "pending",
-    sceneOutline: generatedStory.sceneOutline,
-  };
+    const existing = normalizeProject(store.projects[projectIndex]);
+    const now = new Date().toISOString();
+    const storyDraftId = randomUUID();
+    const nextVersionNumber = existing.scriptDrafts.length + 1;
+    const newDraft: StoryDraftRecord = {
+      id: storyDraftId,
+      createdAt: now,
+      versionLabel: `v${nextVersionNumber}`,
+      titleOptions: generatedStory.titleOptions,
+      hook: generatedStory.hook,
+      fullNarrationDraft: generatedStory.narrationDraft,
+      notes: generatedStory.notes,
+      approvalStatus: "pending",
+      sceneOutline: generatedStory.sceneOutline,
+    };
 
-  const updatedProject: ProjectRecord = {
-    ...existing,
-    status: existing.approvedScriptDraftId ? existing.status : "draft",
-    updatedAt: now,
-    storyInput: {
-      ...existing.storyInput,
-      premise: storyInput.premise,
-      theme: storyInput.theme,
-      tone: storyInput.tone,
-      plotNotes: storyInput.plotNotes,
-      targetRuntimeMin: storyInput.targetRuntimeMin,
-    },
-    storyDraft: newDraft,
-    scriptDrafts: [...existing.scriptDrafts, newDraft],
-    activeScriptDraftId: storyDraftId,
-    latestScriptDraftId: storyDraftId,
-    workflow: {
-      ...existing.workflow,
-      scriptDraftIds: [...existing.workflow.scriptDraftIds, storyDraftId],
-    },
-  };
+    const updatedProject: ProjectRecord = {
+      ...existing,
+      status: existing.approvedScriptDraftId ? existing.status : "draft",
+      updatedAt: now,
+      storyInput: {
+        ...existing.storyInput,
+        premise: storyInput.premise,
+        theme: storyInput.theme,
+        tone: storyInput.tone,
+        plotNotes: storyInput.plotNotes,
+        targetRuntimeMin: storyInput.targetRuntimeMin,
+      },
+      storyDraft: newDraft,
+      scriptDrafts: [...existing.scriptDrafts, newDraft],
+      activeScriptDraftId: storyDraftId,
+      latestScriptDraftId: storyDraftId,
+      workflow: {
+        ...existing.workflow,
+        scriptDraftIds: [...existing.workflow.scriptDraftIds, storyDraftId],
+      },
+    };
 
-  store.projects[projectIndex] = updatedProject;
-  await writeStore(store);
-
-  return updatedProject;
+    store.projects[projectIndex] = updatedProject;
+    return updatedProject;
+  });
 }
 
 export async function setActiveScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const store = await readStore();
-  const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+  return updateStore((store) => {
+    const projectIndex = store.projects.findIndex((project) => project.id === projectId);
 
-  if (projectIndex < 0) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
+    if (projectIndex < 0) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
 
-  const existing = normalizeProject(store.projects[projectIndex]);
-  const selectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
-  if (!selectedDraft) {
-    throw new Error(`Script draft not found: ${scriptDraftId}`);
-  }
+    const existing = normalizeProject(store.projects[projectIndex]);
+    const selectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
+    if (!selectedDraft) {
+      throw new Error(`Script draft not found: ${scriptDraftId}`);
+    }
 
-  const updatedProject: ProjectRecord = {
-    ...existing,
-    updatedAt: new Date().toISOString(),
-    activeScriptDraftId: selectedDraft.id,
-    storyDraft: selectedDraft,
-  };
+    const updatedProject: ProjectRecord = {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      activeScriptDraftId: selectedDraft.id,
+      storyDraft: selectedDraft,
+    };
 
-  store.projects[projectIndex] = updatedProject;
-  await writeStore(store);
-
-  return updatedProject;
+    store.projects[projectIndex] = updatedProject;
+    return updatedProject;
+  });
 }
 
 export async function approveScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const store = await readStore();
-  const projectIndex = store.projects.findIndex((project) => project.id === projectId);
+  return updateStore((store) => {
+    const projectIndex = store.projects.findIndex((project) => project.id === projectId);
 
-  if (projectIndex < 0) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
+    if (projectIndex < 0) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
 
-  const existing = normalizeProject(store.projects[projectIndex]);
-  const approvedAt = new Date().toISOString();
+    const existing = normalizeProject(store.projects[projectIndex]);
+    const approvedAt = new Date().toISOString();
 
-  const updatedDrafts = existing.scriptDrafts.map((draft) => ({
-    ...draft,
-    approvalStatus: draft.id === scriptDraftId ? ("approved" as const) : ("pending" as const),
-  }));
-  const approvedDraft = updatedDrafts.find((draft) => draft.id === scriptDraftId);
+    const updatedDrafts = existing.scriptDrafts.map((draft) => ({
+      ...draft,
+      approvalStatus: draft.id === scriptDraftId ? ("approved" as const) : ("pending" as const),
+    }));
+    const approvedDraft = updatedDrafts.find((draft) => draft.id === scriptDraftId);
 
-  if (!approvedDraft) {
-    throw new Error(`Script draft not found: ${scriptDraftId}`);
-  }
+    if (!approvedDraft) {
+      throw new Error(`Script draft not found: ${scriptDraftId}`);
+    }
 
-  const updatedProject: ProjectRecord = {
-    ...existing,
-    status: "script_ready",
-    updatedAt: approvedAt,
-    scriptDrafts: updatedDrafts,
-    approvedScriptDraftId: scriptDraftId,
-    activeScriptDraftId: scriptDraftId,
-    storyDraft: approvedDraft,
-  };
+    const updatedProject: ProjectRecord = {
+      ...existing,
+      status: "script_ready",
+      updatedAt: approvedAt,
+      scriptDrafts: updatedDrafts,
+      approvedScriptDraftId: scriptDraftId,
+      activeScriptDraftId: scriptDraftId,
+      storyDraft: approvedDraft,
+    };
 
-  store.projects[projectIndex] = updatedProject;
-  await writeStore(store);
-
-  return updatedProject;
+    store.projects[projectIndex] = updatedProject;
+    return updatedProject;
+  });
 }

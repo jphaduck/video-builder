@@ -7,6 +7,12 @@ export interface StoryGenerationInput {
   targetRuntimeMin: number;
 }
 
+export interface StoryOutput {
+  titleOptions: string[];
+  hook: string;
+  script: string;
+}
+
 export interface GeneratedSceneOutlineItem {
   sceneNumber: number;
   heading: string;
