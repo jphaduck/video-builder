@@ -30,5 +30,9 @@ next-env.d.ts
 /data/*.json
 /data/projects/*.json
 /data/scenes/*.json
+/data/captions/*.json
+/data/narration/**
 !/data/projects/.gitkeep
 !/data/scenes/.gitkeep
+!/data/captions/.gitkeep
+!/data/narration/.gitkeep

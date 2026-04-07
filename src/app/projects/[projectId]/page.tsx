@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
+import { CaptionPanel } from "@/components/caption-panel";
+import { NarrationPanel } from "@/components/narration-panel";
 import { ProjectShell } from "@/components/project-shell";
 import { ScenePlanningPanel } from "@/components/scene-planning-panel";
 import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
+import { markCaptionTrackStale } from "@/modules/captions/service";
+import { getCaptionTrack } from "@/modules/captions/repository";
+import { getNarrationTrack } from "@/modules/narration/repository";
 import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
@@ -31,6 +36,23 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const hasApprovedDraft = Boolean(project.approvedScriptDraftId);
   const scenes = await getScenesForProject(project.id);
   const isScenePlanApproved = project.status === "scene_ready";
+  const activeNarrationTrackId = project.workflow.narrationTrackIds.at(-1);
+  const activeCaptionTrackId = project.workflow.captionTrackIds.at(-1);
+  const narrationTrack = activeNarrationTrackId ? await getNarrationTrack(activeNarrationTrackId) : null;
+  let captionTrack = activeCaptionTrackId ? await getCaptionTrack(activeCaptionTrackId) : null;
+
+  if (
+    captionTrack &&
+    narrationTrack &&
+    captionTrack.narrationTrackId !== narrationTrack.id &&
+    !captionTrack.isStale
+  ) {
+    await markCaptionTrackStale(captionTrack.id);
+    captionTrack = {
+      ...captionTrack,
+      isStale: true,
+    };
+  }
 
   return (
     <main className="container">
@@ -180,6 +202,21 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         projectStatus={project.status}
         hasApprovedScript={hasApprovedDraft}
         initialScenes={scenes}
+      />
+
+      <NarrationPanel
+        projectId={project.id}
+        projectStatus={project.status}
+        isScenePlanApproved={isScenePlanApproved}
+        sceneCount={scenes.length}
+        scenes={scenes}
+        initialNarrationTrack={narrationTrack}
+      />
+
+      <CaptionPanel
+        projectId={project.id}
+        initialNarrationTrack={narrationTrack}
+        initialCaptionTrack={captionTrack}
       />
 
       <ProjectShell isScriptApproved={hasApprovedDraft} isScenePlanApproved={isScenePlanApproved} />

@@ -120,3 +120,13 @@
 - Decision: Scene-plan parsing accepts JSON wrapped in markdown fences and fills missing scene fields with safe defaults while logging warnings.
 - Why: Model responses are not always perfectly structured, and hard failure on every partial omission makes the scene workflow brittle.
 - Impact: Scene-generation code should validate the response shape, warn on degraded output quality, and let the user review/regenerate instead of crashing immediately.
+
+## 2026-04-06 - Narration is generated per approved scene and stored as per-scene MP3 files
+- Decision: Generate narration from each approved scene's `scriptExcerpt` instead of synthesizing the full script in one pass, and store audio files in `data/narration/{trackId}/scene-{sceneNumber}.mp3` with a companion `track.json`.
+- Why: OpenAI TTS input size is too small for full 5-20 minute scripts, and per-scene audio aligns directly with the later slideshow/timeline render model.
+- Impact: Narration review, regeneration, and playback all operate at the track level while audio storage remains file-based instead of JSON-embedded.
+
+## 2026-04-06 - Caption tracks become stale when the latest narration track changes
+- Decision: Treat the last ID in `project.workflow.narrationTrackIds` and `project.workflow.captionTrackIds` as the active track for UI purposes, and mark the latest caption track stale when its `narrationTrackId` no longer matches the latest narration track.
+- Why: The current project type already stores workflow track histories but does not have dedicated active-track fields, and adding new project fields was not necessary for Milestone 5.
+- Impact: Page loads and narration regeneration paths must compare the latest workflow IDs, preserve older caption history, and surface a warning when captions no longer match the current narration audio.

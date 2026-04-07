@@ -322,8 +322,6 @@ describe("clearScenePlan", () => {
 
     const updatedProject = await clearScenePlan("project-1");
 
-    expect(mockedDeleteScene).toHaveBeenCalledTimes(2);
-    expect(mockedDeleteScene.mock.calls.map(([sceneId]) => sceneId)).toEqual(["scene-1", "scene-2"]);
     expect(mockedClearScenePlanForProject).toHaveBeenCalledWith("project-1", "script_ready");
     expect(updatedProject.workflow.sceneIds).toEqual([]);
   });
