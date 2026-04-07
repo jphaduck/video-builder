@@ -22,7 +22,7 @@ Status: complete
 - Require explicit approve/reject before scene planning
 
 ## Milestone 4: Scene and image planning
-Status: next
+Status: complete
 
 - Turn the approved script into editable scene records
 - Add duration targets, visual intent, and image prompt planning

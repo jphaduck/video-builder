@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Phase 4 is next. Phase 3 script workflow is complete.
+Phase 4 scene planning is complete. Image generation is the next major milestone.
 
 What exists:
 - repo created
@@ -25,6 +25,14 @@ What exists:
   - draft comparison and active-draft switching
   - manual script editing that saves as a new version
   - explicit approve/reject gate before scene planning unlocks
+- scene planning workflow for approved scripts:
+  - persistent per-scene records stored in `data/scenes/{sceneId}.json`
+  - AI-generated scene plan with scene summaries, script excerpts, duration targets, visual intent, and image prompts
+  - inline scene editing with per-scene save, regenerate, image-prompt regenerate, and full-plan regenerate actions
+  - individual scene approve/reject controls
+  - full scene-plan approval gate before image generation unlocks
+  - hardened scene-plan parsing that tolerates JSON code fences and partial scene objects with warnings/defaults instead of failing immediately
+  - scene-plan invalidation now deletes orphaned `data/scenes/*.json` files before clearing workflow references
 - foundational developer tooling:
   - `.env.example` documents expected AI provider environment variables
   - Vitest + Testing Library smoke testing
@@ -33,18 +41,17 @@ What exists:
 What does not exist yet:
 - database implementation
 - production model/provider-backed generation pipeline
-- scene planning implementation
 - image generation implementation
 - voice and caption implementation
 - render pipeline implementation
 
 Current priority:
-Begin Milestone 4 by turning an approved script draft into an editable scene plan with pacing controls and approval gating.
+Implement image generation and asset review on top of the approved scene plan workflow.
 
 Next 3 tasks:
-1. persist scene records with duration targets and visual intent fields
-2. generate a first-pass scene plan from the approved script draft
-3. add scene approval state before image generation can begin
+1. generate still-image candidates from approved scene prompts
+2. add per-scene image selection and approval before narration work
+3. preserve asset state in project workflow so downstream voice/caption work stays gated correctly
 
 Files to read first next session:
 - AGENTS.md

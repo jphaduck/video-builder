@@ -95,3 +95,28 @@
 - Decision: Add a CI workflow that runs `npm ci`, `npm run lint`, `npm run build`, and `npm test` on push and pull request to `main`.
 - Why: Protects the repo from basic regressions and keeps foundational checks consistent between local development and GitHub.
 - Impact: Future changes should keep these commands green and update the workflow only when the canonical validation steps change.
+
+## 2026-04-06 - Scene persistence uses per-scene JSON files during Milestone 4
+- Decision: Persist each scene as `data/scenes/{sceneId}.json` and keep project workflow references in `project.workflow.sceneIds`.
+- Why: Matches the existing local-file persistence strategy while keeping scene records independently addressable and easy to replace later.
+- Impact: Scene services should treat the project workflow as the source of ordering and membership, while scene files remain the individual storage unit.
+
+## 2026-04-06 - Scene edits and prompt changes reset approval to pending
+- Decision: Any manual scene edit, scene regeneration, or image-prompt regeneration resets that scene's approval status back to `pending`.
+- Why: A previously approved scene should not stay approved after its content changes.
+- Impact: The UI and scene-plan approval flow must require a fresh human approval pass after scene content changes.
+
+## 2026-04-06 - Approving a different script invalidates the current scene plan
+- Decision: When a new script draft becomes the approved script, the project clears `workflow.sceneIds` and returns to the script-ready stage.
+- Why: Scene plans are tied to a specific approved script draft and become stale when the approved script changes.
+- Impact: Downstream scene work is invalidated by script approval changes, and new scenes must be generated from the newly approved script.
+
+## 2026-04-06 - Clearing a scene plan must delete scene files before removing workflow references
+- Decision: When a scene plan is cleared or regenerated, the system deletes each referenced `data/scenes/{sceneId}.json` file before it clears `workflow.sceneIds`.
+- Why: Prevents orphaned scene JSON files from accumulating and keeps the on-disk scene store aligned with project workflow state.
+- Impact: Scene-plan invalidation paths must treat file deletion as part of the clear operation, while missing files only emit warnings.
+
+## 2026-04-06 - Scene generation parsing tolerates fenced JSON and partial scene objects
+- Decision: Scene-plan parsing accepts JSON wrapped in markdown fences and fills missing scene fields with safe defaults while logging warnings.
+- Why: Model responses are not always perfectly structured, and hard failure on every partial omission makes the scene workflow brittle.
+- Impact: Scene-generation code should validate the response shape, warn on degraded output quality, and let the user review/regenerate instead of crashing immediately.

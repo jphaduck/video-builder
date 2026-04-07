@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { ProjectShell } from "@/components/project-shell";
+import { ScenePlanningPanel } from "@/components/scene-planning-panel";
 import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
 import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
+import { getScenesForProject } from "@/modules/scenes/repository";
 import { generateStoryForProjectAction } from "@/modules/scripts/actions";
 
 type ProjectPageProps = {
@@ -27,6 +29,8 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     project.scriptDrafts.at(-1) ??
     null;
   const hasApprovedDraft = Boolean(project.approvedScriptDraftId);
+  const scenes = await getScenesForProject(project.id);
+  const isScenePlanApproved = project.status === "scene_ready";
 
   return (
     <main className="container">
@@ -171,16 +175,14 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         compareDraftId={compareDraftId}
       />
 
-      <section className="card" style={{ marginBottom: 16 }}>
-        <h2 style={{ marginTop: 0 }}>Scene Planning Gate (Next Phase)</h2>
-        {hasApprovedDraft ? (
-          <p className="subtitle">✅ Scene planning is unlocked because a script draft is approved.</p>
-        ) : (
-          <p className="subtitle">🔒 Scene planning is locked. Approve one script draft to continue.</p>
-        )}
-      </section>
+      <ScenePlanningPanel
+        projectId={project.id}
+        projectStatus={project.status}
+        hasApprovedScript={hasApprovedDraft}
+        initialScenes={scenes}
+      />
 
-      <ProjectShell isScriptApproved={hasApprovedDraft} />
+      <ProjectShell isScriptApproved={hasApprovedDraft} isScenePlanApproved={isScenePlanApproved} />
     </main>
   );
 }

@@ -9,10 +9,12 @@ import {
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
 } from "@/lib/projects";
+import { deleteScene } from "@/modules/scenes/repository";
 import { buildSceneOutline } from "@/modules/scripts/draft-utils";
 import type {
   CreateProjectInput,
   ProjectRecord,
+  ProjectStatus,
   ScriptDraftApprovalStatus,
   StoryDraftRecord,
 } from "@/types/project";
@@ -79,6 +81,10 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
       renderJobIds: project.workflow?.renderJobIds ?? [],
     },
   };
+}
+
+async function deleteScenePlanFiles(sceneIds: string[]): Promise<void> {
+  await Promise.all(sceneIds.map((sceneId) => deleteScene(sceneId)));
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {
@@ -222,9 +228,10 @@ export async function setActiveScriptDraft(projectId: string, scriptDraftId: str
 }
 
 export async function approveScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  const updatedProject = await updateStoredProject(projectId, async (project) => {
     const existing = normalizeProject(project);
     const approvedAt = new Date().toISOString();
+    const shouldClearScenePlan = existing.workflow.sceneIds.length > 0 && existing.approvedScriptDraftId !== scriptDraftId;
 
     const updatedDrafts = existing.scriptDrafts.map((draft) => ({
       ...draft,
@@ -241,6 +248,10 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       throw new Error(`Script draft not found: ${scriptDraftId}`);
     }
 
+    if (shouldClearScenePlan) {
+      await deleteScenePlanFiles(existing.workflow.sceneIds);
+    }
+
     return {
       ...existing,
       status: "script_ready",
@@ -249,6 +260,10 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       approvedScriptDraftId: scriptDraftId,
       activeScriptDraftId: scriptDraftId,
       storyDraft: approvedDraft,
+      workflow: {
+        ...existing.workflow,
+        sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+      },
     };
   });
 
@@ -256,7 +271,7 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
 }
 
 export async function rejectScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  const updatedProject = await updateStoredProject(projectId, async (project) => {
     const existing = normalizeProject(project);
     const rejectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
 
@@ -269,7 +284,12 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
     );
     const approvedScriptDraftId =
       existing.approvedScriptDraftId === scriptDraftId ? undefined : existing.approvedScriptDraftId;
+    const shouldClearScenePlan = existing.workflow.sceneIds.length > 0 && existing.approvedScriptDraftId === scriptDraftId;
     const storyDraft = updatedDrafts.find((draft) => draft.id === existing.storyDraft?.id) ?? existing.storyDraft;
+
+    if (shouldClearScenePlan) {
+      await deleteScenePlanFiles(existing.workflow.sceneIds);
+    }
 
     return {
       ...existing,
@@ -279,6 +299,67 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       approvedScriptDraftId,
       storyDraft,
       activeScriptDraftId: existing.activeScriptDraftId === scriptDraftId ? rejectedDraft.id : existing.activeScriptDraftId,
+      workflow: {
+        ...existing.workflow,
+        sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function clearScenePlanForProject(
+  projectId: string,
+  nextStatus: ProjectStatus = "script_ready",
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        sceneIds: [],
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function saveScenePlanForProject(projectId: string, sceneIds: string[]): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: "scene_planning",
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        sceneIds,
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function approveScenePlanForProject(projectId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    if (existing.workflow.sceneIds.length === 0) {
+      throw new Error("Scene plan not found for this project.");
+    }
+
+    return {
+      ...existing,
+      status: "scene_ready",
+      updatedAt: new Date().toISOString(),
     };
   });
 

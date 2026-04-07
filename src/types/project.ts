@@ -1,6 +1,7 @@
 export type ProjectStatus =
   | "draft"
   | "script_ready"
+  | "scene_planning"
   | "scene_ready"
   | "images_ready"
   | "voice_ready"

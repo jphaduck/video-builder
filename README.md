@@ -12,7 +12,7 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 3 script workflow is complete and the repo is ready to begin Milestone 4 scene planning.
+Phase 4 scene planning is complete and the repo is ready for image generation and asset review work.
 
 Completed foundation work:
 - project persistence using per-project JSON files in `data/projects/`
@@ -20,6 +20,7 @@ Completed foundation work:
 - project create and save flow at `/projects/new`
 - project detail loading at `/projects/[projectId]`
 - story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
+- scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, and scene-plan approval gating
 - Vitest smoke testing and GitHub Actions CI
 
 Implemented routes:
@@ -53,5 +54,5 @@ Implemented routes:
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- The script workflow through approval is implemented, but scene planning, assets, narration, captions, and rendering are still scaffolded for later milestones.
-- Project persistence is currently local/file-backed under `data/projects/{projectId}.json` and planned to move to a production storage backend in a later milestone.
+- Scene planning and image prompt planning are implemented, but actual image generation, assets, narration, captions, and rendering are still upcoming.
+- Project persistence is currently local/file-backed under `data/projects/{projectId}.json`, and scene persistence is currently local/file-backed under `data/scenes/{sceneId}.json`.
