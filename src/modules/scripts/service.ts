@@ -3,6 +3,8 @@ import { getOpenAIClient } from "@/lib/ai";
 import { buildSceneOutline, countWords } from "@/modules/scripts/draft-utils";
 import type { GeneratedStoryDraft, StoryGenerationInput, StoryOutput } from "@/modules/scripts/types";
 
+const SHORT_SCRIPT_ERROR = "OpenAI response script is too short for target runtime.";
+
 function parseStoryOutput(content: string): StoryOutput {
   let parsed: unknown;
 
@@ -55,6 +57,10 @@ function hasEchoedInput(output: string, input: StoryGenerationInput): boolean {
   return candidates.some((candidate) => normalizedOutput.includes(candidate));
 }
 
+function getMinimumNarrativeWordCount(input: StoryGenerationInput): number {
+  return Math.max(350, Math.round(input.targetRuntimeMin * 90));
+}
+
 function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput): void {
   if (output.titleOptions.length !== 3) {
     throw new Error("OpenAI response must include exactly 3 title options.");
@@ -70,9 +76,9 @@ function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput
   }
 
   const narrativeWordCount = countWords(output.script);
-  const minWords = Math.max(350, Math.round(input.targetRuntimeMin * 90));
+  const minWords = getMinimumNarrativeWordCount(input);
   if (narrativeWordCount < minWords) {
-    throw new Error("OpenAI response script is too short for target runtime.");
+    throw new Error(SHORT_SCRIPT_ERROR);
   }
 
   const fullOutput = [output.titleOptions.join(" "), output.hook, output.script].join(" ");
@@ -81,17 +87,38 @@ function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput
   }
 }
 
-export async function generateStoryDraft(input: StoryGenerationInput): Promise<GeneratedStoryDraft> {
-  const openai = getOpenAIClient();
+function buildUserPrompt(
+  input: StoryGenerationInput,
+  options?: { minimumWordCount?: number; isRetry?: boolean },
+): string {
+  const minimumWordCount = options?.minimumWordCount ?? getMinimumNarrativeWordCount(input);
+  const retryInstruction = options?.isRetry
+    ? `
+Important retry instruction:
+- Your previous draft was too short.
+- Return a fuller version of the same story concept.
+- The "script" field must be at least ${minimumWordCount} words.
+- Do not shorten the middle or ending.
+`.trim()
+    : "";
 
-  const userPrompt = `
+  return `
 Project name: ${input.projectName}
 Theme: ${input.theme}
 Premise: ${input.premise}
 Plot notes: ${input.plotNotes}
 Tone: ${input.tone}
 Target runtime (minutes): ${input.targetRuntimeMin}
+Minimum script word count: ${minimumWordCount}
+${retryInstruction}
 `.trim();
+}
+
+async function requestStoryOutput(
+  input: StoryGenerationInput,
+  options?: { isRetry?: boolean },
+): Promise<StoryOutput> {
+  const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
     model: STORY_DRAFT_PROMPT.model,
@@ -99,7 +126,13 @@ Target runtime (minutes): ${input.targetRuntimeMin}
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: STORY_DRAFT_PROMPT.systemPrompt },
-      { role: "user", content: userPrompt },
+      {
+        role: "user",
+        content: buildUserPrompt(input, {
+          minimumWordCount: getMinimumNarrativeWordCount(input),
+          isRetry: options?.isRetry,
+        }),
+      },
     ],
   });
 
@@ -108,8 +141,22 @@ Target runtime (minutes): ${input.targetRuntimeMin}
     throw new Error("OpenAI returned an empty response.");
   }
 
-  const output = parseStoryOutput(content);
-  validateCreativeOutput(output, input);
+  return parseStoryOutput(content);
+}
+
+export async function generateStoryDraft(input: StoryGenerationInput): Promise<GeneratedStoryDraft> {
+  let output = await requestStoryOutput(input);
+
+  try {
+    validateCreativeOutput(output, input);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== SHORT_SCRIPT_ERROR) {
+      throw error;
+    }
+
+    output = await requestStoryOutput(input, { isRetry: true });
+    validateCreativeOutput(output, input);
+  }
 
   return {
     titleOptions: output.titleOptions,

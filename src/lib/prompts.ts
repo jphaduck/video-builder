@@ -53,6 +53,7 @@ Rules for script:
 - Structure with beginning, escalation, climax, and resolution.
 - Use plot notes as guidance only; transform them into fresh prose.
 - Target a length suitable for the requested runtime (about 130-170 spoken words per minute).
+- Do not underwrite the narration or stop after a short summary. Deliver a complete full-length draft that satisfies the requested runtime.
 
 Safety:
 - Keep content YouTube-safe and avoid disallowed explicit content.
