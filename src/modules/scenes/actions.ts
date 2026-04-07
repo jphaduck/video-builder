@@ -5,6 +5,7 @@ import {
   approveScene,
   approveScenePlan,
   generateScenePlan,
+  regenerateScenePlan,
   regenerateImagePrompt,
   regenerateScene,
   rejectScene,
@@ -32,6 +33,16 @@ function revalidateProjectPath(projectId: string): void {
 export async function generateScenePlanAction(projectId: string): Promise<SceneActionResult<Scene[]>> {
   try {
     const scenes = await generateScenePlan(projectId);
+    revalidateProjectPath(projectId);
+    return buildSuccessResult(scenes);
+  } catch (error) {
+    return buildErrorResult(error);
+  }
+}
+
+export async function regenerateScenePlanAction(projectId: string): Promise<SceneActionResult<Scene[]>> {
+  try {
+    const scenes = await regenerateScenePlan(projectId);
     revalidateProjectPath(projectId);
     return buildSuccessResult(scenes);
   } catch (error) {

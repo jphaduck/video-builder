@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { getOpenAIClient } from "@/lib/ai";
-import { approveScenePlanForProject, getProjectById, saveScenePlanForProject } from "@/modules/projects/repository";
-import { getScene, getScenesForProject, saveScene } from "@/modules/scenes/repository";
-import type { ProjectRecord, StoryDraftRecord } from "@/types/project";
+import {
+  approveScenePlanForProject,
+  clearScenePlanForProject,
+  getProjectById,
+  saveScenePlanForProject,
+} from "@/modules/projects/repository";
+import { deleteScene, getScene, getScenesForProject, saveScene } from "@/modules/scenes/repository";
+import type { ProjectRecord, ProjectStatus, StoryDraftRecord } from "@/types/project";
 import type { CreateSceneInput, Scene, SceneUpdateInput } from "@/types/scene";
 
 type GeneratedScenePlanItem = {
@@ -27,11 +32,20 @@ const DURATION_RULES = `
 `.trim();
 
 const IMAGE_PROMPT_RULES = `
-- Cinematic, suspenseful, polished YouTube storytelling tone
-- No text or captions in the image
-- Describe lighting, mood, framing, and setting
-- Match the dramatic weight of the moment instead of illustrating sentences literally
-- Write the prompt as a single descriptive paragraph, not a list
+- Write each image prompt as a single, rich descriptive paragraph of 2-4 sentences
+- Describe: the setting, the lighting quality, the emotional atmosphere, the compositional framing (wide shot, close-up, overhead, etc.)
+- Never include people's faces as the focal point unless the scene demands it - prefer silhouettes, environmental storytelling, and symbolic imagery
+- Never include text, captions, watermarks, or UI elements in the description
+- Avoid generic phrases like "dark and moody" or "cinematic" without specifics - instead say what the light source is, what time of day it is, what textures are present
+- Match the dramatic weight of the moment: a tense revelation should feel claustrophobic and shadow-heavy; an emotional payoff should feel expansive and warm
+- Write for a still image, not a video frame - the image should stand on its own as a visual story beat
+- Style target: painterly realism, high detail, muted or desaturated color grading appropriate to the tone of the scene, no fantasy or cartoon elements unless the story specifically calls for it
+`.trim();
+
+const VISUAL_INTENT_RULES = `
+- visualIntent should be 1-2 sentences describing what emotional or narrative purpose the image serves in the story
+- visualIntent should explain what the viewer should feel or understand, not what the image literally looks like
+- Example: "Conveys the protagonist's isolation and the scale of what they're facing. The emptiness of the environment should feel threatening, not peaceful."
 `.trim();
 
 const SCENE_PLAN_SYSTEM_PROMPT = `
@@ -55,6 +69,9 @@ ${DURATION_RULES}
 
 Image prompt rules:
 ${IMAGE_PROMPT_RULES}
+
+Visual intent rules:
+${VISUAL_INTENT_RULES}
 `.trim();
 
 const REGENERATE_SCENE_SYSTEM_PROMPT = `
@@ -74,33 +91,36 @@ ${DURATION_RULES}
 
 Image prompt rules:
 ${IMAGE_PROMPT_RULES}
+
+Visual intent rules:
+${VISUAL_INTENT_RULES}
 `.trim();
 
 const IMAGE_PROMPT_SYSTEM_PROMPT = `
 You are refining one image prompt for a YouTube story scene.
-Return only the new image prompt as a single descriptive paragraph.
-Do not return JSON, labels, bullets, quotation marks, or markdown.
+Return strictly valid JSON only. Return either a JSON string containing the image prompt or an object like {"imagePrompt":"..."}.
 
 Image prompt rules:
 ${IMAGE_PROMPT_RULES}
 `.trim();
 
-function extractJsonPayload(content: string): string {
-  const trimmed = content.trim();
-  if (!trimmed.startsWith("```")) {
-    return trimmed;
-  }
-
-  const withoutFencePrefix = trimmed.replace(/^```(?:json)?\s*/i, "");
-  return withoutFencePrefix.replace(/\s*```$/, "").trim();
+function extractJson(raw: string): unknown {
+  const stripped = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
+  return JSON.parse(stripped);
 }
 
 function parseJsonValue<T>(content: string, errorMessage: string): T {
   try {
-    return JSON.parse(extractJsonPayload(content)) as T;
+    return extractJson(content) as T;
   } catch {
     throw new Error(errorMessage);
   }
+}
+
+function logSceneFieldWarning(sceneIndex: number, field: string, fallbackValue: string | number): void {
+  console.warn(
+    `Scene plan generation returned scene ${sceneIndex} without a valid ${field}. Using fallback: ${JSON.stringify(fallbackValue)}.`,
+  );
 }
 
 function getProjectOrThrow(projectId: string, project: ProjectRecord | null): ProjectRecord {
@@ -124,53 +144,59 @@ function getApprovedDraft(project: ProjectRecord): StoryDraftRecord {
   return approvedDraft;
 }
 
-function normalizeScenePlanItem(entry: GeneratedScenePlanItem): GeneratedScenePlanItem {
-  if (!Number.isInteger(entry.sceneNumber) || entry.sceneNumber < 1) {
-    throw new Error("Scene plan response included an invalid sceneNumber.");
-  }
-  if (typeof entry.heading !== "string" || !entry.heading.trim()) {
-    throw new Error("Scene plan response included an invalid heading.");
-  }
-  if (typeof entry.scriptExcerpt !== "string" || !entry.scriptExcerpt.trim()) {
-    throw new Error("Scene plan response included an invalid scriptExcerpt.");
-  }
-  if (typeof entry.sceneSummary !== "string" || !entry.sceneSummary.trim()) {
-    throw new Error("Scene plan response included an invalid sceneSummary.");
-  }
-  if (!Number.isFinite(entry.durationTargetSeconds) || entry.durationTargetSeconds <= 0) {
-    throw new Error("Scene plan response included an invalid durationTargetSeconds.");
-  }
-  if (typeof entry.visualIntent !== "string" || !entry.visualIntent.trim()) {
-    throw new Error("Scene plan response included an invalid visualIntent.");
-  }
-  if (typeof entry.imagePrompt !== "string" || !entry.imagePrompt.trim()) {
-    throw new Error("Scene plan response included an invalid imagePrompt.");
-  }
+function normalizeScenePlanItemWithFallback(entry: unknown, sceneIndex: number): GeneratedScenePlanItem {
+  const sceneEntry = entry && typeof entry === "object" ? (entry as Partial<GeneratedScenePlanItem>) : {};
+  const sceneNumber =
+    Number.isInteger(sceneEntry.sceneNumber) && Number(sceneEntry.sceneNumber) > 0
+      ? Number(sceneEntry.sceneNumber)
+      : (logSceneFieldWarning(sceneIndex, "sceneNumber", sceneIndex), sceneIndex);
+
+  const heading =
+    typeof sceneEntry.heading === "string"
+      ? sceneEntry.heading.trim()
+      : (logSceneFieldWarning(sceneNumber, "heading", ""), "");
+  const scriptExcerpt =
+    typeof sceneEntry.scriptExcerpt === "string"
+      ? sceneEntry.scriptExcerpt.trim()
+      : (logSceneFieldWarning(sceneNumber, "scriptExcerpt", ""), "");
+  const sceneSummary =
+    typeof sceneEntry.sceneSummary === "string"
+      ? sceneEntry.sceneSummary.trim()
+      : (logSceneFieldWarning(sceneNumber, "sceneSummary", ""), "");
+  const durationTargetSeconds =
+    Number.isFinite(sceneEntry.durationTargetSeconds) && Number(sceneEntry.durationTargetSeconds) > 0
+      ? Math.max(1, Math.round(Number(sceneEntry.durationTargetSeconds)))
+      : (logSceneFieldWarning(sceneNumber, "durationTargetSeconds", 20), 20);
+  const visualIntent =
+    typeof sceneEntry.visualIntent === "string"
+      ? sceneEntry.visualIntent.trim()
+      : (logSceneFieldWarning(sceneNumber, "visualIntent", ""), "");
+  const imagePrompt =
+    typeof sceneEntry.imagePrompt === "string"
+      ? sceneEntry.imagePrompt.trim()
+      : (logSceneFieldWarning(sceneNumber, "imagePrompt", ""), "");
 
   return {
-    sceneNumber: entry.sceneNumber,
-    heading: entry.heading.trim(),
-    scriptExcerpt: entry.scriptExcerpt.trim(),
-    sceneSummary: entry.sceneSummary.trim(),
-    durationTargetSeconds: Math.max(1, Math.round(entry.durationTargetSeconds)),
-    visualIntent: entry.visualIntent.trim(),
-    imagePrompt: entry.imagePrompt.trim(),
+    sceneNumber,
+    heading,
+    scriptExcerpt,
+    sceneSummary,
+    durationTargetSeconds,
+    visualIntent,
+    imagePrompt,
   };
 }
 
 function parseScenePlanOutput(content: string): GeneratedScenePlanItem[] {
   const parsed = parseJsonValue<unknown>(content, "OpenAI response was not valid JSON for the scene plan.");
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw new Error("OpenAI response did not include a valid scene array.");
+  if (!Array.isArray(parsed)) {
+    throw new Error("Scene plan generation returned unexpected format. Expected an array of scenes.");
+  }
+  if (parsed.length === 0) {
+    throw new Error("Scene plan generation returned an empty array of scenes.");
   }
 
-  return parsed.map((entry) => {
-    if (!entry || typeof entry !== "object") {
-      throw new Error("Scene plan response included a non-object scene entry.");
-    }
-
-    return normalizeScenePlanItem(entry as GeneratedScenePlanItem);
-  });
+  return parsed.map((entry, index) => normalizeScenePlanItemWithFallback(entry, index + 1));
 }
 
 function parseRegeneratedSceneOutput(content: string): RegeneratedSceneOutput {
@@ -179,11 +205,11 @@ function parseRegeneratedSceneOutput(content: string): RegeneratedSceneOutput {
     throw new Error("OpenAI response did not include a valid regenerated scene object.");
   }
 
-  const normalized = normalizeScenePlanItem({
+  const normalized = normalizeScenePlanItemWithFallback({
     sceneNumber: 1,
     scriptExcerpt: "placeholder",
     ...(parsed as RegeneratedSceneOutput),
-  });
+  }, 1);
 
   return {
     heading: normalized.heading,
@@ -192,6 +218,25 @@ function parseRegeneratedSceneOutput(content: string): RegeneratedSceneOutput {
     visualIntent: normalized.visualIntent,
     imagePrompt: normalized.imagePrompt,
   };
+}
+
+function parseImagePromptOutput(content: string): string {
+  const parsed = parseJsonValue<unknown>(
+    content,
+    "OpenAI response was not valid JSON for the regenerated image prompt.",
+  );
+
+  if (typeof parsed === "string") {
+    return normalizePromptText(parsed);
+  }
+
+  if (parsed && typeof parsed === "object" && typeof (parsed as { imagePrompt?: unknown }).imagePrompt === "string") {
+    return normalizePromptText((parsed as { imagePrompt: string }).imagePrompt);
+  }
+
+  throw new Error(
+    "Image prompt regeneration returned unexpected format. Expected a string or an object with an imagePrompt string field.",
+  );
 }
 
 function buildSceneRecord(input: CreateSceneInput): Scene {
@@ -239,6 +284,27 @@ Target runtime seconds: ${targetRuntimeMin * 60}
 Approved narration script:
 ${approvedDraft.fullNarrationDraft}
 `.trim();
+}
+
+function warnIfScenePlanLooksOff(scenes: GeneratedScenePlanItem[], runtimeMinutes: number): void {
+  const expectedSeconds = runtimeMinutes * 60;
+  const expectedMin = Math.floor(expectedSeconds / 45);
+  const expectedMax = Math.ceil(expectedSeconds / 18);
+  const count = scenes.length;
+
+  if (count < expectedMin || count > expectedMax) {
+    console.warn(
+      `Scene plan generated ${count} scenes for a ${runtimeMinutes}-minute video. Expected between ${expectedMin} and ${expectedMax}. Proceeding anyway.`,
+    );
+  }
+
+  const actualTotalSeconds = scenes.reduce((sum, scene) => sum + scene.durationTargetSeconds, 0);
+  const allowedVariance = expectedSeconds * 0.25;
+  if (Math.abs(actualTotalSeconds - expectedSeconds) > allowedVariance) {
+    console.warn(
+      `Scene plan duration totals ${actualTotalSeconds} seconds for a ${runtimeMinutes}-minute video. Expected about ${expectedSeconds} seconds. Proceeding anyway.`,
+    );
+  }
 }
 
 function buildRegenerateSceneUserPrompt(project: ProjectRecord, approvedDraft: StoryDraftRecord, scene: Scene, allScenes: Scene[]): string {
@@ -292,6 +358,7 @@ function normalizePromptText(content: string): string {
 export async function generateScenePlan(projectId: string): Promise<Scene[]> {
   const project = getProjectOrThrow(projectId, await getProjectById(projectId));
   const approvedDraft = getApprovedDraft(project);
+  const runtimeMinutes = project.storyInput.targetRuntimeMin ?? 10;
 
   if (project.workflow.sceneIds.length > 0) {
     throw new Error("A scene plan already exists for this project.");
@@ -313,6 +380,7 @@ export async function generateScenePlan(projectId: string): Promise<Scene[]> {
   }
 
   const scenePlanItems = parseScenePlanOutput(content).sort((a, b) => a.sceneNumber - b.sceneNumber);
+  warnIfScenePlanLooksOff(scenePlanItems, runtimeMinutes);
   const scenes = scenePlanItems.map((scenePlanItem) =>
     buildSceneRecord({
       projectId: project.id,
@@ -408,10 +476,10 @@ Current image prompt: ${existingScene.imagePrompt}
     ],
   });
 
-  const content = response.choices[0]?.message?.content;
+  const content = response.choices[0]?.message?.content ?? "";
   const updatedScene: Scene = {
     ...existingScene,
-    imagePrompt: normalizePromptText(content ?? ""),
+    imagePrompt: parseImagePromptOutput(content),
     promptVersion: existingScene.promptVersion + 1,
     approvalStatus: "pending",
     source: "manual_edit",
@@ -459,4 +527,24 @@ export async function approveScenePlan(projectId: string): Promise<void> {
   }
 
   await approveScenePlanForProject(project.id);
+}
+
+export async function clearScenePlan(
+  projectId: string,
+  nextStatus: ProjectStatus = "script_ready",
+): Promise<ProjectRecord> {
+  const project = getProjectOrThrow(projectId, await getProjectById(projectId));
+
+  await Promise.all(project.workflow.sceneIds.map((sceneId) => deleteScene(sceneId)));
+  return clearScenePlanForProject(project.id, nextStatus);
+}
+
+export async function regenerateScenePlan(projectId: string): Promise<Scene[]> {
+  const project = getProjectOrThrow(projectId, await getProjectById(projectId));
+
+  if (project.workflow.sceneIds.length > 0) {
+    await clearScenePlan(project.id, "script_ready");
+  }
+
+  return generateScenePlan(projectId);
 }

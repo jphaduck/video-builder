@@ -110,3 +110,13 @@
 - Decision: When a new script draft becomes the approved script, the project clears `workflow.sceneIds` and returns to the script-ready stage.
 - Why: Scene plans are tied to a specific approved script draft and become stale when the approved script changes.
 - Impact: Downstream scene work is invalidated by script approval changes, and new scenes must be generated from the newly approved script.
+
+## 2026-04-06 - Clearing a scene plan must delete scene files before removing workflow references
+- Decision: When a scene plan is cleared or regenerated, the system deletes each referenced `data/scenes/{sceneId}.json` file before it clears `workflow.sceneIds`.
+- Why: Prevents orphaned scene JSON files from accumulating and keeps the on-disk scene store aligned with project workflow state.
+- Impact: Scene-plan invalidation paths must treat file deletion as part of the clear operation, while missing files only emit warnings.
+
+## 2026-04-06 - Scene generation parsing tolerates fenced JSON and partial scene objects
+- Decision: Scene-plan parsing accepts JSON wrapped in markdown fences and fills missing scene fields with safe defaults while logging warnings.
+- Why: Model responses are not always perfectly structured, and hard failure on every partial omission makes the scene workflow brittle.
+- Impact: Scene-generation code should validate the response shape, warn on degraded output quality, and let the user review/regenerate instead of crashing immediately.

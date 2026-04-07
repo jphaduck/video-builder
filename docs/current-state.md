@@ -28,9 +28,11 @@ What exists:
 - scene planning workflow for approved scripts:
   - persistent per-scene records stored in `data/scenes/{sceneId}.json`
   - AI-generated scene plan with scene summaries, script excerpts, duration targets, visual intent, and image prompts
-  - inline scene editing with per-scene save, regenerate, and image-prompt regenerate actions
+  - inline scene editing with per-scene save, regenerate, image-prompt regenerate, and full-plan regenerate actions
   - individual scene approve/reject controls
   - full scene-plan approval gate before image generation unlocks
+  - hardened scene-plan parsing that tolerates JSON code fences and partial scene objects with warnings/defaults instead of failing immediately
+  - scene-plan invalidation now deletes orphaned `data/scenes/*.json` files before clearing workflow references
 - foundational developer tooling:
   - `.env.example` documents expected AI provider environment variables
   - Vitest + Testing Library smoke testing

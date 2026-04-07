@@ -7,6 +7,7 @@ import {
   approveScenePlanAction,
   generateScenePlanAction,
   regenerateImagePromptAction,
+  regenerateScenePlanAction,
   regenerateSceneAction,
   rejectSceneAction,
   updateSceneAction,
@@ -175,6 +176,26 @@ export function ScenePlanningPanel({
     });
   }
 
+  async function handleRegenerateScenePlan(): Promise<void> {
+    if (!window.confirm("Regenerate the full scene plan? This will delete all current scenes and unsaved scene edits.")) {
+      return;
+    }
+
+    await runSceneAction("regenerate-scene-plan", async () => {
+      const result = await regenerateScenePlanAction(projectId);
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      setScenes(result.data);
+      setEditableFields(buildEditableFields(result.data));
+      setExpandedSceneIds(result.data[0] ? [result.data[0].id] : []);
+      setSuccessMessage(`Regenerated ${result.data.length} scenes from the approved script.`);
+      router.refresh();
+    });
+  }
+
   async function handleSaveScene(scene: Scene): Promise<void> {
     const values = editableFields[scene.id];
     const updates = getDirtyFields(scene, values);
@@ -335,9 +356,20 @@ export function ScenePlanningPanel({
               <p className="subtitle">Image generation will be available here once implemented.</p>
             </>
           ) : (
-            <p className="subtitle" style={{ marginTop: 0 }}>
-              Review each generated scene, refine the editable fields, and approve every scene before moving on.
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <p className="subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+                Review each generated scene, refine the editable fields, and approve every scene before moving on.
+              </p>
+              <button
+                type="button"
+                className="card"
+                onClick={() => void handleRegenerateScenePlan()}
+                disabled={pendingAction !== null}
+                style={{ cursor: pendingAction ? "wait" : "pointer" }}
+              >
+                {pendingAction === "regenerate-scene-plan" ? "Regenerating Full Plan..." : "Regenerate Full Plan"}
+              </button>
+            </div>
           )}
 
           {errorMessage ? (

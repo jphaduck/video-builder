@@ -92,9 +92,12 @@ export async function deleteScene(sceneId: string): Promise<void> {
     try {
       await unlink(getSceneFilePath(sceneId));
     } catch (error) {
-      if (!(isErrnoException(error) && error.code === "ENOENT")) {
-        throw error;
+      if (isErrnoException(error) && error.code === "ENOENT") {
+        console.warn(`Scene file missing while deleting scene ${sceneId}. Continuing.`);
+        return;
       }
+
+      throw error;
     }
   });
 }
