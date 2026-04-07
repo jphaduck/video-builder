@@ -6,7 +6,7 @@ import {
   getProjectById,
   saveScenePlanForProject,
 } from "@/modules/projects/repository";
-import { deleteScene, getScene, getScenesForProject, saveScene } from "@/modules/scenes/repository";
+import { getScene, getScenesForProject, saveScene } from "@/modules/scenes/repository";
 import type { ProjectRecord, ProjectStatus, StoryDraftRecord } from "@/types/project";
 import type { CreateSceneInput, Scene, SceneUpdateInput } from "@/types/scene";
 
@@ -534,8 +534,6 @@ export async function clearScenePlan(
   nextStatus: ProjectStatus = "script_ready",
 ): Promise<ProjectRecord> {
   const project = getProjectOrThrow(projectId, await getProjectById(projectId));
-
-  await Promise.all(project.workflow.sceneIds.map((sceneId) => deleteScene(sceneId)));
   return clearScenePlanForProject(project.id, nextStatus);
 }
 

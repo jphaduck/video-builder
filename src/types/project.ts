@@ -3,6 +3,7 @@ export type ProjectStatus =
   | "script_ready"
   | "scene_planning"
   | "scene_ready"
+  | "narration_pending"
   | "images_ready"
   | "voice_ready"
   | "timeline_ready"

@@ -9,6 +9,8 @@ import {
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
 } from "@/lib/projects";
+import { deleteCaptionTrack } from "@/modules/captions/repository";
+import { deleteNarrationTrack } from "@/modules/narration/repository";
 import { deleteScene } from "@/modules/scenes/repository";
 import { buildSceneOutline } from "@/modules/scripts/draft-utils";
 import type {
@@ -85,6 +87,29 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
 
 async function deleteScenePlanFiles(sceneIds: string[]): Promise<void> {
   await Promise.all(sceneIds.map((sceneId) => deleteScene(sceneId)));
+}
+
+async function deleteNarrationTracks(trackIds: string[]): Promise<void> {
+  await Promise.all(trackIds.map((trackId) => deleteNarrationTrack(trackId)));
+}
+
+async function deleteCaptionTracks(trackIds: string[]): Promise<void> {
+  await Promise.all(trackIds.map((trackId) => deleteCaptionTrack(trackId)));
+}
+
+async function deleteDerivedArtifactsForProject(project: ProjectRecord): Promise<void> {
+  await deleteScenePlanFiles(project.workflow.sceneIds);
+  await deleteNarrationTracks(project.workflow.narrationTrackIds);
+  await deleteCaptionTracks(project.workflow.captionTrackIds);
+}
+
+function appendUniqueId(ids: string[], nextId: string): string[] {
+  return ids.includes(nextId) ? ids : [...ids, nextId];
+}
+
+function replaceId(ids: string[], previousId: string, nextId: string): string[] {
+  const remainingIds = ids.filter((id) => id !== previousId);
+  return appendUniqueId(remainingIds, nextId);
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {
@@ -249,7 +274,7 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
     }
 
     if (shouldClearScenePlan) {
-      await deleteScenePlanFiles(existing.workflow.sceneIds);
+      await deleteDerivedArtifactsForProject(existing);
     }
 
     return {
@@ -263,6 +288,8 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
+        captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
       },
     };
   });
@@ -288,7 +315,7 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
     const storyDraft = updatedDrafts.find((draft) => draft.id === existing.storyDraft?.id) ?? existing.storyDraft;
 
     if (shouldClearScenePlan) {
-      await deleteScenePlanFiles(existing.workflow.sceneIds);
+      await deleteDerivedArtifactsForProject(existing);
     }
 
     return {
@@ -302,6 +329,8 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
+        captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
       },
     };
   });
@@ -313,8 +342,10 @@ export async function clearScenePlanForProject(
   projectId: string,
   nextStatus: ProjectStatus = "script_ready",
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  const updatedProject = await updateStoredProject(projectId, async (project) => {
     const existing = normalizeProject(project);
+
+    await deleteDerivedArtifactsForProject(existing);
 
     return {
       ...existing,
@@ -323,6 +354,8 @@ export async function clearScenePlanForProject(
       workflow: {
         ...existing.workflow,
         sceneIds: [],
+        narrationTrackIds: [],
+        captionTrackIds: [],
       },
     };
   });
@@ -360,6 +393,77 @@ export async function approveScenePlanForProject(projectId: string): Promise<Pro
       ...existing,
       status: "scene_ready",
       updatedAt: new Date().toISOString(),
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function saveNarrationTrackForProject(projectId: string, trackId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: "narration_pending",
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        narrationTrackIds: appendUniqueId(existing.workflow.narrationTrackIds, trackId),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function replaceNarrationTrackForProject(
+  projectId: string,
+  previousTrackId: string,
+  nextTrackId: string,
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: "narration_pending",
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        narrationTrackIds: replaceId(existing.workflow.narrationTrackIds, previousTrackId, nextTrackId),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function approveNarrationTrackForProject(projectId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: "voice_ready",
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function saveCaptionTrackForProject(projectId: string, trackId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        captionTrackIds: appendUniqueId(existing.workflow.captionTrackIds, trackId),
+      },
     };
   });
 
