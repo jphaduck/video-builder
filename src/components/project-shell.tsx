@@ -3,17 +3,20 @@ import { SectionCard } from "@/components/section-card";
 
 type ProjectShellProps = {
   isScriptApproved: boolean;
+  isScenePlanApproved?: boolean;
 };
 
-function buildProjectSections(isScriptApproved: boolean): WorkflowSection[] {
+function buildProjectSections(isScriptApproved: boolean, isScenePlanApproved: boolean): WorkflowSection[] {
   return [
     { module: "scripts", title: "Script", description: "Draft, edit, compare, reject, and approve script versions." },
     {
       module: "scenes",
       title: "Scenes",
-      description: isScriptApproved
-        ? "Scene planning is unlocked and ready for Milestone 4 implementation."
-        : "Scene planning is locked until you approve one script draft.",
+      description: isScenePlanApproved
+        ? "Scene plan approved. Image generation is the next locked stage."
+        : isScriptApproved
+          ? "Scene planning is unlocked for review, editing, regeneration, and approval."
+          : "Scene planning is locked until you approve one script draft.",
     },
     { module: "assets", title: "Assets", description: "Manage still-image prompts and selected visuals." },
     { module: "narration", title: "Narration", description: "Voiceover settings and narration regeneration controls." },
@@ -22,8 +25,8 @@ function buildProjectSections(isScriptApproved: boolean): WorkflowSection[] {
   ];
 }
 
-export function ProjectShell({ isScriptApproved }: ProjectShellProps) {
-  const projectSections = buildProjectSections(isScriptApproved);
+export function ProjectShell({ isScriptApproved, isScenePlanApproved = false }: ProjectShellProps) {
+  const projectSections = buildProjectSections(isScriptApproved, isScenePlanApproved);
 
   return (
     <div className="grid grid-2">

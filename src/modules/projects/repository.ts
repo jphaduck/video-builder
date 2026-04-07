@@ -249,6 +249,10 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       approvedScriptDraftId: scriptDraftId,
       activeScriptDraftId: scriptDraftId,
       storyDraft: approvedDraft,
+      workflow: {
+        ...existing.workflow,
+        sceneIds: [],
+      },
     };
   });
 
@@ -279,6 +283,46 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       approvedScriptDraftId,
       storyDraft,
       activeScriptDraftId: existing.activeScriptDraftId === scriptDraftId ? rejectedDraft.id : existing.activeScriptDraftId,
+      workflow: {
+        ...existing.workflow,
+        sceneIds: approvedScriptDraftId ? existing.workflow.sceneIds : [],
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function saveScenePlanForProject(projectId: string, sceneIds: string[]): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status: "scene_planning",
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        sceneIds,
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function approveScenePlanForProject(projectId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    if (existing.workflow.sceneIds.length === 0) {
+      throw new Error("Scene plan not found for this project.");
+    }
+
+    return {
+      ...existing,
+      status: "scene_ready",
+      updatedAt: new Date().toISOString(),
     };
   });
 

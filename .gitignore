@@ -29,4 +29,6 @@ next-env.d.ts
 # local file storage
 /data/*.json
 /data/projects/*.json
+/data/scenes/*.json
 !/data/projects/.gitkeep
+!/data/scenes/.gitkeep
