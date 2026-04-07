@@ -15,11 +15,12 @@ The app is designed to:
 Phase 3 script workflow is complete and the repo is ready to begin Milestone 4 scene planning.
 
 Completed foundation work:
-- project persistence using a file-backed JSON store (`data/projects.json`)
+- project persistence using per-project JSON files in `data/projects/`
 - project list route at `/projects`
 - project create and save flow at `/projects/new`
 - project detail loading at `/projects/[projectId]`
 - story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
+- Vitest smoke testing and GitHub Actions CI
 
 Implemented routes:
 - `/` homepage
@@ -32,9 +33,9 @@ Implemented routes:
    ```bash
    npm install
    ```
-2. Add your OpenAI API key to `.env.local`:
+2. Copy `.env.example` to `.env.local` and fill in the variables you need:
    ```bash
-   OPENAI_API_KEY=your_key_here
+   cp .env.example .env.local
    ```
 3. Start dev server:
    ```bash
@@ -53,4 +54,4 @@ Implemented routes:
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
 - The script workflow through approval is implemented, but scene planning, assets, narration, captions, and rendering are still scaffolded for later milestones.
-- Project persistence is currently local/file-backed and planned to move to a production storage backend in a later milestone.
+- Project persistence is currently local/file-backed under `data/projects/{projectId}.json` and planned to move to a production storage backend in a later milestone.

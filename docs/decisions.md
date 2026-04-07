@@ -76,12 +76,22 @@
 - Why: Keeps codebase modular and maintainable while aligning with documented architecture boundaries.
 - Impact: Future feature work should attach logic to module boundaries instead of ad-hoc page-only code.
 
-## 2026-04-06 - Milestone 1 persistence uses local JSON file store behind project repository
-- Decision: Implement initial project persistence with a `projects` repository backed by `data/projects.json`.
-- Why: Smallest clean step to enable create/list/load flows without committing early to a database driver.
-- Impact: Repository API should remain stable so storage backend can later move to Postgres/Supabase with minimal route changes.
+## 2026-04-06 - Milestone 1 persistence uses per-project JSON files behind a simple projects library
+- Decision: Persist each project as `data/projects/{projectId}.json` and access project storage through `src/lib/projects.ts`.
+- Why: Keeps early persistence local and dependency-free while avoiding a monolithic shared JSON file and preserving a clean seam for future database replacement.
+- Impact: Higher-level project modules should depend on the library/repository interface rather than file layout details.
 
 ## 2026-04-06 - Milestone 2 story engine uses modular local generator service
 - Decision: Implement story generation through a dedicated scripts service module that returns a structured story draft (title options, hook, narration draft, scene outline) and persist results on the project record.
 - Why: Delivers Milestone 2 end-to-end behavior now while keeping provider-facing generation logic isolated for future model integrations.
 - Impact: Future AI provider integrations can swap generation internals without rewriting project routes or persistence wiring.
+
+## 2026-04-06 - Use Vitest and Testing Library for lightweight UI verification
+- Decision: Add Vitest with Testing Library and Jest DOM for smoke-level UI tests.
+- Why: Gives the project a fast, low-ceremony way to verify core rendering without introducing a heavy test harness.
+- Impact: New UI work should add focused smoke or behavior tests where it improves confidence.
+
+## 2026-04-06 - Run automated checks in GitHub Actions on main and pull requests
+- Decision: Add a CI workflow that runs `npm ci`, `npm run lint`, `npm run build`, and `npm test` on push and pull request to `main`.
+- Why: Protects the repo from basic regressions and keeps foundational checks consistent between local development and GitHub.
+- Impact: Future changes should keep these commands green and update the workflow only when the canonical validation steps change.
