@@ -1,5 +1,7 @@
 import "server-only";
 
+// File-backed storage layer for reading and writing raw project records in data/projects.
+
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";

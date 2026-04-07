@@ -1,5 +1,7 @@
 import "server-only";
 
+// Project-domain repository layer that normalizes stored records and applies script workflow mutations.
+
 import { randomUUID } from "node:crypto";
 import {
   createProject as createStoredProject,
