@@ -39,7 +39,25 @@ function getSceneAudioFilePath(trackId: string, sceneNumber: number): string {
 
 function parseNarrationTrack(raw: string, filePath: string): NarrationTrack {
   try {
-    return JSON.parse(raw) as NarrationTrack;
+    const parsed = JSON.parse(raw) as NarrationTrack;
+
+    return {
+      ...parsed,
+      scenes: parsed.scenes.map((sceneAudio) => ({
+        ...sceneAudio,
+        measuredDurationSeconds: sceneAudio.measuredDurationSeconds ?? sceneAudio.durationSeconds,
+      })),
+      totalDurationSeconds:
+        parsed.totalDurationSeconds ??
+        Number(
+          parsed.scenes
+            .reduce(
+              (sum, sceneAudio) => sum + (sceneAudio.measuredDurationSeconds ?? sceneAudio.durationSeconds),
+              0,
+            )
+            .toFixed(2),
+        ),
+    };
   } catch (error) {
     throw new Error(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : "unknown error"}`);
   }

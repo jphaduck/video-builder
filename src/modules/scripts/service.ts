@@ -1,42 +1,7 @@
+import { STORY_DRAFT_PROMPT, getPromptMeta } from "@/lib/prompts";
 import { getOpenAIClient } from "@/lib/ai";
 import { buildSceneOutline, countWords } from "@/modules/scripts/draft-utils";
 import type { GeneratedStoryDraft, StoryGenerationInput, StoryOutput } from "@/modules/scripts/types";
-
-const STORY_SYSTEM_PROMPT = `
-You are a senior YouTube story writer.
-You write original, click-worthy, long-form narration for slideshow-style story videos.
-
-Use user inputs only as creative direction. Do NOT copy or paraphrase the raw input fields directly into output.
-Do NOT echo "Theme:", "Premise:", "Tone:", or "Plot notes:" text back to the user.
-
-Return strictly valid JSON only (no markdown, no prose outside JSON) with this exact shape:
-{
-  "titleOptions": string[],
-  "hook": string,
-  "script": string
-}
-
-Rules for titleOptions:
-- Exactly 3 titles.
-- Each title should be short, punchy, and feel like a real clickable YouTube story title.
-- Do not include the literal theme/premise/tone phrases from the input.
-
-Rules for hook:
-- Write 3 to 5 sentences.
-- Write in second-person narrator voice ("you").
-- Immediately introduce tension, uncertainty, or mystery.
-- Do not copy premise text verbatim.
-
-Rules for script:
-- Write original long-form narration (not a summary or outline).
-- Maintain second-person narrator voice across the full script.
-- Structure with beginning, escalation, climax, and resolution.
-- Use plot notes as guidance only; transform them into fresh prose.
-- Target a length suitable for the requested runtime (about 130-170 spoken words per minute).
-
-Safety:
-- Keep content YouTube-safe and avoid disallowed explicit content.
-`.trim();
 
 function parseStoryOutput(content: string): StoryOutput {
   let parsed: unknown;
@@ -129,11 +94,11 @@ Target runtime (minutes): ${input.targetRuntimeMin}
 `.trim();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0.7,
+    model: STORY_DRAFT_PROMPT.model,
+    temperature: STORY_DRAFT_PROMPT.temperature,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: STORY_SYSTEM_PROMPT },
+      { role: "system", content: STORY_DRAFT_PROMPT.systemPrompt },
       { role: "user", content: userPrompt },
     ],
   });
@@ -150,7 +115,8 @@ Target runtime (minutes): ${input.targetRuntimeMin}
     titleOptions: output.titleOptions,
     hook: output.hook,
     narrationDraft: output.script,
-    notes: `Generated with gpt-4o for ${input.targetRuntimeMin} minute target runtime.`,
+    notes: `Generated with ${STORY_DRAFT_PROMPT.model} for ${input.targetRuntimeMin} minute target runtime.`,
     sceneOutline: buildSceneOutline(output.script),
+    llmMeta: getPromptMeta(STORY_DRAFT_PROMPT),
   };
 }

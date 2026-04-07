@@ -4,8 +4,8 @@ import { getOpenAIClient } from "@/lib/ai";
 import { getNarrationTrack } from "@/modules/narration/repository";
 import { getProjectById, saveCaptionTrackForProject } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
-import { getCaptionTrack, saveCaptionTrack } from "@/modules/captions/repository";
-import { generateCaptionTrack, updateCaptionSegment } from "@/modules/captions/service";
+import { getCaptionTrack, saveCaptionExport, saveCaptionTrack } from "@/modules/captions/repository";
+import { exportSrt, exportVtt, generateCaptionTrack, updateCaptionSegment } from "@/modules/captions/service";
 import type { CaptionTrack } from "@/types/caption";
 import type { NarrationTrack } from "@/types/narration";
 import type { ProjectRecord, StoryDraftRecord } from "@/types/project";
@@ -37,6 +37,7 @@ vi.mock("@/modules/scenes/repository", () => ({
 
 vi.mock("@/modules/captions/repository", () => ({
   getCaptionTrack: vi.fn(),
+  saveCaptionExport: vi.fn(),
   saveCaptionTrack: vi.fn(),
 }));
 
@@ -47,6 +48,7 @@ const mockedGetProjectById = vi.mocked(getProjectById);
 const mockedSaveCaptionTrackForProject = vi.mocked(saveCaptionTrackForProject);
 const mockedGetScenesForProject = vi.mocked(getScenesForProject);
 const mockedGetCaptionTrack = vi.mocked(getCaptionTrack);
+const mockedSaveCaptionExport = vi.mocked(saveCaptionExport);
 const mockedSaveCaptionTrack = vi.mocked(saveCaptionTrack);
 
 function createDraft(overrides: Partial<StoryDraftRecord> = {}): StoryDraftRecord {
@@ -133,6 +135,7 @@ function createNarrationTrack(overrides: Partial<NarrationTrack> = {}): Narratio
         sceneNumber: 1,
         audioFilePath: "data/narration/track-1/scene-1.mp3",
         durationSeconds: 3,
+        measuredDurationSeconds: 3,
         generatedAt: "2026-04-06T00:00:00.000Z",
       },
     ],
@@ -192,6 +195,7 @@ beforeEach(() => {
   mockedGetProjectById.mockResolvedValue(createProject());
   mockedGetScenesForProject.mockResolvedValue([createScene()]);
   mockedSaveCaptionTrack.mockResolvedValue();
+  mockedSaveCaptionExport.mockResolvedValue();
   mockedSaveCaptionTrackForProject.mockResolvedValue(createProject());
 });
 
@@ -230,6 +234,7 @@ describe("generateCaptionTrack", () => {
             sceneNumber: 2,
             audioFilePath: "data/narration/track-1/scene-2.mp3",
             durationSeconds: 2,
+            measuredDurationSeconds: 2,
             generatedAt: "2026-04-06T00:00:00.000Z",
           },
         ],
@@ -274,6 +279,56 @@ describe("generateCaptionTrack", () => {
     expect(track.segments[0]?.text).toBe("One two three four five six seven eight");
     expect(track.segments[1]?.text).toBe("nine");
   });
+
+  it("offsets later scene captions by measured narration duration and writes SRT/VTT exports", async () => {
+    const createTranscription = vi
+      .fn()
+      .mockResolvedValueOnce({
+        words: [{ word: "First.", start: 0, end: 0.5 }],
+      })
+      .mockResolvedValueOnce({
+        words: [{ word: "Second.", start: 0, end: 0.5 }],
+      });
+    mockedGetOpenAIClient.mockReturnValue({
+      audio: {
+        transcriptions: {
+          create: createTranscription,
+        },
+      },
+    } as never);
+    mockedGetNarrationTrack.mockResolvedValue(
+      createNarrationTrack({
+        scenes: [
+          {
+            sceneId: "scene-1",
+            sceneNumber: 1,
+            audioFilePath: "data/narration/track-1/scene-1.mp3",
+            durationSeconds: 3,
+            measuredDurationSeconds: 3,
+            generatedAt: "2026-04-06T00:00:00.000Z",
+          },
+          {
+            sceneId: "scene-2",
+            sceneNumber: 2,
+            audioFilePath: "data/narration/track-1/scene-2.mp3",
+            durationSeconds: 2,
+            measuredDurationSeconds: 2,
+            generatedAt: "2026-04-06T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    mockedGetScenesForProject.mockResolvedValue([
+      createScene({ id: "scene-1", sceneNumber: 1 }),
+      createScene({ id: "scene-2", sceneNumber: 2 }),
+    ]);
+
+    const track = await generateCaptionTrack("project-1", "track-1");
+
+    expect(track.segments[1]?.startMs).toBe(3000);
+    expect(mockedSaveCaptionExport).toHaveBeenCalledWith(track.id, "srt", expect.stringContaining("00:00:03,000"));
+    expect(mockedSaveCaptionExport).toHaveBeenCalledWith(track.id, "vtt", expect.stringContaining("00:00:03.000"));
+  });
 });
 
 describe("updateCaptionSegment", () => {
@@ -285,5 +340,15 @@ describe("updateCaptionSegment", () => {
     expect(track.segments[0]?.edited).toBe(true);
     expect(track.segments[0]?.text).toBe("Updated caption text");
     expect(mockedSaveCaptionTrack).toHaveBeenCalledWith(expect.objectContaining({ source: "manual" }));
+  });
+});
+
+describe("caption export helpers", () => {
+  it("renders SRT and VTT with the expected timestamp format", () => {
+    const track = createCaptionTrack();
+
+    expect(exportSrt(track)).toContain("00:00:00,000 --> 00:00:01,200");
+    expect(exportVtt(track)).toContain("WEBVTT");
+    expect(exportVtt(track)).toContain("00:00:00.000 --> 00:00:01.200");
   });
 });

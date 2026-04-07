@@ -9,6 +9,7 @@ import {
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
 } from "@/lib/projects";
+import { deleteAssetCandidate } from "@/modules/assets/repository";
 import { deleteCaptionTrack } from "@/modules/captions/repository";
 import { deleteNarrationTrack } from "@/modules/narration/repository";
 import { deleteScene } from "@/modules/scenes/repository";
@@ -89,6 +90,10 @@ async function deleteScenePlanFiles(sceneIds: string[]): Promise<void> {
   await Promise.all(sceneIds.map((sceneId) => deleteScene(sceneId)));
 }
 
+async function deleteAssetCandidates(assetIds: string[]): Promise<void> {
+  await Promise.all(assetIds.map((assetId) => deleteAssetCandidate(assetId)));
+}
+
 async function deleteNarrationTracks(trackIds: string[]): Promise<void> {
   await Promise.all(trackIds.map((trackId) => deleteNarrationTrack(trackId)));
 }
@@ -99,6 +104,7 @@ async function deleteCaptionTracks(trackIds: string[]): Promise<void> {
 
 async function deleteDerivedArtifactsForProject(project: ProjectRecord): Promise<void> {
   await deleteScenePlanFiles(project.workflow.sceneIds);
+  await deleteAssetCandidates(project.workflow.assetIds);
   await deleteNarrationTracks(project.workflow.narrationTrackIds);
   await deleteCaptionTracks(project.workflow.captionTrackIds);
 }
@@ -156,6 +162,7 @@ export async function saveStoryDraftForProject(
       approvalStatus: "pending",
       source: "generated",
       sceneOutline: generatedStory.sceneOutline,
+      llmMeta: generatedStory.llmMeta,
     };
 
     return {
@@ -288,6 +295,7 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
       },
@@ -329,6 +337,7 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
       },
@@ -354,6 +363,7 @@ export async function clearScenePlanForProject(
       workflow: {
         ...existing.workflow,
         sceneIds: [],
+        assetIds: [],
         narrationTrackIds: [],
         captionTrackIds: [],
       },
@@ -463,6 +473,23 @@ export async function saveCaptionTrackForProject(projectId: string, trackId: str
       workflow: {
         ...existing.workflow,
         captionTrackIds: appendUniqueId(existing.workflow.captionTrackIds, trackId),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function addAssetCandidateIdsToProject(projectId: string, assetIds: string[]): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        assetIds: assetIds.reduce((currentIds, assetId) => appendUniqueId(currentIds, assetId), existing.workflow.assetIds),
       },
     };
   });

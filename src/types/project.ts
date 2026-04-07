@@ -32,6 +32,13 @@ export interface StorySceneOutlineItem {
   summary: string;
 }
 
+export interface LlmMeta {
+  promptId: string;
+  promptVersion: number;
+  model: string;
+  temperature: number;
+}
+
 export type ScriptDraftApprovalStatus = "pending" | "approved" | "rejected";
 export type StoryDraftSource = "generated" | "manual_edit";
 
@@ -47,6 +54,7 @@ export interface StoryDraftRecord {
   source: StoryDraftSource;
   derivedFromDraftId?: string;
   sceneOutline: StorySceneOutlineItem[];
+  llmMeta?: LlmMeta;
 }
 
 export interface Project {

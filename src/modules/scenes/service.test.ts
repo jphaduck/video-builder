@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getOpenAIClient } from "@/lib/ai";
+import { ensureAssetCandidatesForScene } from "@/modules/assets/service";
 import {
   approveScenePlanForProject,
   clearScenePlanForProject,
@@ -13,6 +14,10 @@ import type { Scene } from "@/types/scene";
 
 vi.mock("@/lib/ai", () => ({
   getOpenAIClient: vi.fn(),
+}));
+
+vi.mock("@/modules/assets/service", () => ({
+  ensureAssetCandidatesForScene: vi.fn(),
 }));
 
 vi.mock("@/modules/projects/repository", () => ({
@@ -30,6 +35,7 @@ vi.mock("@/modules/scenes/repository", () => ({
 }));
 
 const mockedGetOpenAIClient = vi.mocked(getOpenAIClient);
+const mockedEnsureAssetCandidatesForScene = vi.mocked(ensureAssetCandidatesForScene);
 const mockedApproveScenePlanForProject = vi.mocked(approveScenePlanForProject);
 const mockedClearScenePlanForProject = vi.mocked(clearScenePlanForProject);
 const mockedGetProjectById = vi.mocked(getProjectById);
@@ -115,6 +121,7 @@ beforeEach(() => {
       },
     },
   } as never);
+  mockedEnsureAssetCandidatesForScene.mockResolvedValue([]);
   mockedDeleteScene.mockResolvedValue();
   mockedClearScenePlanForProject.mockResolvedValue(createProject({ workflow: { scriptDraftIds: ["draft-1"], sceneIds: [], assetIds: [], narrationTrackIds: [], captionTrackIds: [], renderJobIds: [] } }));
 });

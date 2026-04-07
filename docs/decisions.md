@@ -130,3 +130,18 @@
 - Decision: Treat the last ID in `project.workflow.narrationTrackIds` and `project.workflow.captionTrackIds` as the active track for UI purposes, and mark the latest caption track stale when its `narrationTrackId` no longer matches the latest narration track.
 - Why: The current project type already stores workflow track histories but does not have dedicated active-track fields, and adding new project fields was not necessary for Milestone 5.
 - Impact: Page loads and narration regeneration paths must compare the latest workflow IDs, preserve older caption history, and surface a warning when captions no longer match the current narration audio.
+
+## 2026-04-07 - Prompt specs are centralized and versioned
+- Decision: Move LLM prompts into `src/lib/prompts.ts` and persist `{ promptId, promptVersion, model, temperature }` on generated script drafts and scenes.
+- Why: Prompt text and inference settings are now part of the artifact provenance, which makes future prompt iteration safer and more traceable.
+- Impact: Generated artifacts must record prompt metadata, and prompt changes should increment the prompt version instead of silently replacing inline strings.
+
+## 2026-04-07 - Caption timelines use measured narration durations as scene offsets
+- Decision: Offset caption segment timestamps by the measured MP3 duration of earlier narration scenes, and export `.srt` / `.vtt` sidecars whenever a caption track changes.
+- Why: Whisper timestamps are scene-local, but the final timeline needs project-wide timings that line up with real narration audio instead of estimated speech lengths.
+- Impact: Narration tracks must store `measuredDurationSeconds`, caption generation must accumulate those offsets, and caption edits must regenerate subtitle export files.
+
+## 2026-04-07 - Scene approval seeds asset candidates instead of waiting for a separate bootstrap step
+- Decision: Approving a scene now ensures that placeholder asset candidates are created from the approved image prompt.
+- Why: This gives the next image milestone a stable, persisted handoff artifact without adding image generation itself yet.
+- Impact: Scene approval has a downstream persistence side effect, and scene-plan invalidation must clear asset candidate records along with other derived artifacts.

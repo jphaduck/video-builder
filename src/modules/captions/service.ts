@@ -5,7 +5,7 @@ import { getOpenAIClient } from "@/lib/ai";
 import { getNarrationTrack } from "@/modules/narration/repository";
 import { getProjectById, saveCaptionTrackForProject } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
-import { getCaptionTrack, saveCaptionTrack } from "@/modules/captions/repository";
+import { getCaptionTrack, saveCaptionExport, saveCaptionTrack } from "@/modules/captions/repository";
 import type { CaptionSegment, CaptionTrack } from "@/types/caption";
 import type { ProjectRecord } from "@/types/project";
 import type { Scene } from "@/types/scene";
@@ -48,7 +48,7 @@ function shouldBreakSegment(word: string, currentCount: number): boolean {
   return currentCount >= 8 || /[.!?]["')\]]?$/.test(word);
 }
 
-function chunkWordsIntoSegments(words: WhisperWord[], scene: Scene): CaptionSegment[] {
+function chunkWordsIntoSegments(words: WhisperWord[], scene: Scene, offsetMs: number): CaptionSegment[] {
   const segments: CaptionSegment[] = [];
   let pendingWords: ReturnType<typeof normalizeWord>[] = [];
 
@@ -61,8 +61,8 @@ function chunkWordsIntoSegments(words: WhisperWord[], scene: Scene): CaptionSegm
     const lastWord = pendingWords[pendingWords.length - 1];
     segments.push({
       id: randomUUID(),
-      startMs: Math.round(firstWord.start * 1000),
-      endMs: Math.round(lastWord.end * 1000),
+      startMs: offsetMs + Math.round(firstWord.start * 1000),
+      endMs: offsetMs + Math.round(lastWord.end * 1000),
       text: pendingWords.map((word) => word.word).join(" ").trim(),
       sceneId: scene.id,
       sceneNumber: scene.sceneNumber,
@@ -87,6 +87,41 @@ function chunkWordsIntoSegments(words: WhisperWord[], scene: Scene): CaptionSegm
   return segments;
 }
 
+function formatCaptionTimestamp(milliseconds: number, separator: "," | "."): string {
+  const totalMilliseconds = Math.max(0, Math.round(milliseconds));
+  const hours = Math.floor(totalMilliseconds / 3_600_000);
+  const minutes = Math.floor((totalMilliseconds % 3_600_000) / 60_000);
+  const seconds = Math.floor((totalMilliseconds % 60_000) / 1_000);
+  const ms = totalMilliseconds % 1_000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${separator}${String(ms).padStart(3, "0")}`;
+}
+
+export function exportSrt(track: CaptionTrack): string {
+  return track.segments
+    .map(
+      (segment, index) =>
+        `${index + 1}\n${formatCaptionTimestamp(segment.startMs, ",")} --> ${formatCaptionTimestamp(segment.endMs, ",")}\n${segment.text}`,
+    )
+    .join("\n\n");
+}
+
+export function exportVtt(track: CaptionTrack): string {
+  const body = track.segments
+    .map(
+      (segment) =>
+        `${formatCaptionTimestamp(segment.startMs, ".")} --> ${formatCaptionTimestamp(segment.endMs, ".")}\n${segment.text}`,
+    )
+    .join("\n\n");
+
+  return `WEBVTT\n\n${body}`;
+}
+
+async function persistCaptionTrackArtifacts(track: CaptionTrack): Promise<void> {
+  await saveCaptionTrack(track);
+  await saveCaptionExport(track.id, "srt", exportSrt(track));
+  await saveCaptionExport(track.id, "vtt", exportVtt(track));
+}
+
 export async function generateCaptionTrack(projectId: string, narrationTrackId: string): Promise<CaptionTrack> {
   const narrationTrack = await getNarrationTrack(narrationTrackId);
   if (!narrationTrack) {
@@ -101,10 +136,12 @@ export async function generateCaptionTrack(projectId: string, narrationTrackId: 
   const sceneMap = new Map(scenes.map((scene) => [scene.id, scene]));
   const openai = getOpenAIClient();
   const segments: CaptionSegment[] = [];
+  let currentOffsetMs = 0;
 
   for (const sceneAudio of [...narrationTrack.scenes].sort((a, b) => a.sceneNumber - b.sceneNumber)) {
     const scene = sceneMap.get(sceneAudio.sceneId);
     if (!scene) {
+      currentOffsetMs += Math.round(sceneAudio.measuredDurationSeconds * 1000);
       continue;
     }
 
@@ -116,7 +153,8 @@ export async function generateCaptionTrack(projectId: string, narrationTrackId: 
       timestamp_granularities: ["word"],
     })) as WhisperVerboseResponse;
 
-    segments.push(...chunkWordsIntoSegments(transcription.words ?? [], scene));
+    segments.push(...chunkWordsIntoSegments(transcription.words ?? [], scene, currentOffsetMs));
+    currentOffsetMs += Math.round(sceneAudio.measuredDurationSeconds * 1000);
   }
 
   const now = new Date().toISOString();
@@ -132,7 +170,7 @@ export async function generateCaptionTrack(projectId: string, narrationTrackId: 
     updatedAt: now,
   };
 
-  await saveCaptionTrack(track);
+  await persistCaptionTrackArtifacts(track);
   await saveCaptionTrackForProject(project.id, track.id);
   return track;
 }
@@ -151,7 +189,7 @@ export async function updateCaptionSegment(trackId: string, segmentId: string, t
     updatedAt: new Date().toISOString(),
   };
 
-  await saveCaptionTrack(updatedTrack);
+  await persistCaptionTrackArtifacts(updatedTrack);
   return updatedTrack;
 }
 
@@ -177,7 +215,7 @@ export async function updateCaptionSegmentTiming(
     updatedAt: new Date().toISOString(),
   };
 
-  await saveCaptionTrack(updatedTrack);
+  await persistCaptionTrackArtifacts(updatedTrack);
   return updatedTrack;
 }
 
@@ -187,7 +225,7 @@ export async function markCaptionTrackStale(trackId: string): Promise<void> {
     return;
   }
 
-  await saveCaptionTrack({
+  await persistCaptionTrackArtifacts({
     ...track,
     isStale: true,
     updatedAt: new Date().toISOString(),

@@ -1,5 +1,6 @@
 export type {
   CreateProjectInput,
+  LlmMeta,
   Project,
   ProjectRecord,
   ProjectStatus,

@@ -1,0 +1,81 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
+
+const mockedCreateReadStream = vi.fn();
+const mockedAccess = vi.fn();
+const mockedStat = vi.fn();
+
+vi.mock("node:fs", () => ({
+  default: {
+    createReadStream: (...args: unknown[]) => mockedCreateReadStream(...args),
+    constants: {
+      R_OK: 4,
+    },
+  },
+  createReadStream: (...args: unknown[]) => mockedCreateReadStream(...args),
+  constants: {
+    R_OK: 4,
+  },
+}));
+
+vi.mock("node:fs/promises", () => ({
+  default: {
+    access: (...args: unknown[]) => mockedAccess(...args),
+    stat: (...args: unknown[]) => mockedStat(...args),
+  },
+  access: (...args: unknown[]) => mockedAccess(...args),
+  stat: (...args: unknown[]) => mockedStat(...args),
+}));
+
+describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedAccess.mockResolvedValue(undefined);
+    mockedStat.mockResolvedValue({ size: 5 });
+    mockedCreateReadStream.mockReturnValue(Readable.from(["audio"]));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns 400 for an invalid track id", async () => {
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "not-a-uuid", sceneNumber: "1" }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 for an invalid scene number", async () => {
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-12d3-a456-426614174000", sceneNumber: "../1" }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 404 when the audio file is missing", async () => {
+    mockedAccess.mockRejectedValue(new Error("missing"));
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("streams the audio file for valid requests", async () => {
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("audio/mpeg");
+    expect(mockedCreateReadStream).toHaveBeenCalledTimes(1);
+    expect(mockedStat).toHaveBeenCalledTimes(1);
+  });
+});
