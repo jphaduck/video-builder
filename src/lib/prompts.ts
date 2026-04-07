@@ -19,7 +19,7 @@ function buildLlmMeta(prompt: PromptSpec): LlmMeta {
 
 export const STORY_DRAFT_PROMPT: PromptSpec = {
   id: "story-draft",
-  version: 1,
+  version: 2,
   model: "gpt-4o",
   temperature: 0.7,
   systemPrompt: `
@@ -39,19 +39,29 @@ Return strictly valid JSON only (no markdown, no prose outside JSON) with this e
 Rules for titleOptions:
 - Exactly 3 titles.
 - Each title should be short, punchy, and feel like a real clickable YouTube story title.
+- Each title must be a complete, publication-ready phrase.
+- Do not return truncated, dangling, or fragment-like titles.
 - Do not include the literal theme/premise/tone phrases from the input.
 
 Rules for hook:
 - Write 3 to 5 sentences.
+- The first sentence must place the viewer inside a specific moment, not explain the premise abstractly.
 - Write in second-person narrator voice ("you").
 - Immediately introduce tension, uncertainty, or mystery.
 - Do not copy premise text verbatim.
 
 Rules for script:
-- Write original long-form narration (not a summary or outline).
+- Write original long-form narration in chronological order across the full story (not a summary or outline).
 - Maintain second-person narrator voice across the full script.
-- Structure with beginning, escalation, climax, and resolution.
-- Use plot notes as guidance only; transform them into fresh prose.
+- Use plot notes as the chronological spine when they are provided, and preserve the major beats in order.
+- Expand major beats into full narration rather than compressing them into summary lines.
+- Use paragraph-based long-form narration, with each paragraph advancing one meaningful beat, transition, or realization.
+- Include richer procedural, environmental, and psychological detail so the story feels lived-in rather than summarized.
+- Build a strong middle section, not just an opening setup and a brief ending.
+- Do not collapse multiple major plot beats into one paragraph.
+- Do not write a synopsis disguised as narration.
+- Pace the story through: early setup, discovery, controlled risk, escalation, attrition, containment, and reflection.
+- Land on a quiet, reflective ending with emotional weight and a sense of permanence.
 - Target a length suitable for the requested runtime (about 130-170 spoken words per minute).
 - Do not underwrite the narration or stop after a short summary. Deliver a complete full-length draft that satisfies the requested runtime.
 
