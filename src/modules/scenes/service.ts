@@ -6,7 +6,6 @@ import {
   SCENE_PLAN_PROMPT,
   getPromptMeta,
 } from "@/lib/prompts";
-import { ensureAssetCandidatesForScene } from "@/modules/assets/service";
 import {
   approveScenePlanForProject,
   clearScenePlanForProject,
@@ -428,7 +427,6 @@ export async function approveScene(sceneId: string): Promise<Scene> {
   };
 
   await saveScene(updatedScene);
-  await ensureAssetCandidatesForScene(updatedScene);
   return updatedScene;
 }
 

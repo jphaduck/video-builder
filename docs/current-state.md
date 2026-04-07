@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Phase 5 narration and captions is complete. Image generation, timeline assembly, and final rendering are the next major milestones.
+Phase 6 still-image generation and asset approval is complete. Timeline assembly and final rendering are the next major milestones.
 
 What exists:
 - repo created
@@ -25,8 +25,16 @@ What exists:
   - AI-generated scene plan with duration targets, visual intent, image prompts, and per-scene prompt metadata
   - inline scene editing with per-scene save, regenerate, image-prompt regenerate, and full-plan regenerate actions
   - individual scene approve/reject controls
-  - scene approval seeds placeholder asset candidates for the next image milestone
   - scene-plan invalidation deletes scene, asset, narration, and caption artifacts before clearing workflow references
+- still-image asset workflow for approved scene plans:
+  - persistent asset candidate metadata stored in `data/assets/{assetId}.json`
+  - generated image files stored on disk in `data/assets/{assetId}.png`
+  - OpenAI still-image generation from each approved scene's `imagePrompt`
+  - multiple image candidates per scene with single-selection review controls
+  - per-scene selected-image approve/reject controls and project-level image-plan approval
+  - image file route for browser thumbnails via `/api/assets/[assetId]`
+  - image plan reaches `images_ready` only when every approved scene has one selected and approved image
+  - regenerating or re-selecting images invalidates downstream timeline/render artifacts without touching scenes, narration, or captions
 - narration workflow for approved scene plans:
   - per-scene narration generation using OpenAI TTS (`tts-1-hd`)
   - one MP3 file per scene stored on disk in `data/narration/{trackId}/scene-{sceneNumber}.mp3`
@@ -42,7 +50,6 @@ What exists:
   - inline caption text and timing edits that regenerate the export sidecars
   - stale-caption detection when the latest caption track no longer matches the latest narration track
 - next-stage scaffolding:
-  - file-backed asset candidate module in `src/modules/assets`
   - file-backed timeline draft module in `src/modules/timeline`
   - file-backed rendering job module in `src/modules/rendering`
 - foundational developer tooling:
@@ -51,20 +58,18 @@ What exists:
   - Vitest smoke/service tests and GitHub Actions CI using `npm run validate`
 
 What does not exist yet:
-- actual image generation implementation
-- asset selection UI and approval flow
 - final timeline editor UI
 - Remotion render/export implementation
 - background jobs/queueing
 - database-backed persistence
 
 Current priority:
-Implement image generation and asset review, then promote the saved assets plus approved narration/captions into a human-reviewable timeline draft and render job flow.
+Promote approved scenes, selected still images, narration, and captions into a human-reviewable timeline draft and render job flow.
 
 Next 3 tasks:
-1. generate still-image outputs from approved scene prompts and save them against asset candidates
-2. add per-scene asset selection/approval before timeline assembly
-3. build the Remotion timeline/render stage from approved scenes, selected assets, narration, and captions
+1. build a timeline draft from approved scenes, selected still images, narration, and captions
+2. add timeline review/edit controls before final rendering
+3. build the Remotion render stage and persist render jobs/artifacts
 
 Files to read first next session:
 - AGENTS.md

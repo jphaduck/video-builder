@@ -82,6 +82,7 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
       narrationTrackIds: project.workflow?.narrationTrackIds ?? [],
       captionTrackIds: project.workflow?.captionTrackIds ?? [],
       renderJobIds: project.workflow?.renderJobIds ?? [],
+      imagePlanApprovedAt: project.workflow?.imagePlanApprovedAt,
     },
   };
 }
@@ -116,6 +117,15 @@ function appendUniqueId(ids: string[], nextId: string): string[] {
 function replaceId(ids: string[], previousId: string, nextId: string): string[] {
   const remainingIds = ids.filter((id) => id !== previousId);
   return appendUniqueId(remainingIds, nextId);
+}
+
+function removeIds(ids: string[], removedIds: string[]): string[] {
+  if (removedIds.length === 0) {
+    return ids;
+  }
+
+  const removedIdSet = new Set(removedIds);
+  return ids.filter((id) => !removedIdSet.has(id));
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {
@@ -298,6 +308,7 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
         assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
+        imagePlanApprovedAt: shouldClearScenePlan ? undefined : existing.workflow.imagePlanApprovedAt,
       },
     };
   });
@@ -340,6 +351,7 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
         assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
+        imagePlanApprovedAt: shouldClearScenePlan ? undefined : existing.workflow.imagePlanApprovedAt,
       },
     };
   });
@@ -366,6 +378,7 @@ export async function clearScenePlanForProject(
         assetIds: [],
         narrationTrackIds: [],
         captionTrackIds: [],
+        imagePlanApprovedAt: undefined,
       },
     };
   });
@@ -384,6 +397,7 @@ export async function saveScenePlanForProject(projectId: string, sceneIds: strin
       workflow: {
         ...existing.workflow,
         sceneIds,
+        imagePlanApprovedAt: undefined,
       },
     };
   });
@@ -490,6 +504,58 @@ export async function addAssetCandidateIdsToProject(projectId: string, assetIds:
       workflow: {
         ...existing.workflow,
         assetIds: assetIds.reduce((currentIds, assetId) => appendUniqueId(currentIds, assetId), existing.workflow.assetIds),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function replaceAssetCandidateIdsForProject(
+  projectId: string,
+  previousAssetIds: string[],
+  nextAssetIds: string[],
+  nextStatus?: ProjectStatus,
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+    const remainingIds = removeIds(existing.workflow.assetIds, previousAssetIds);
+
+    return {
+      ...existing,
+      status: nextStatus ?? existing.status,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        assetIds: nextAssetIds.reduce((currentIds, assetId) => appendUniqueId(currentIds, assetId), remainingIds),
+        renderJobIds: [],
+        imagePlanApprovedAt: undefined,
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function setProjectStatus(
+  projectId: string,
+  status: ProjectStatus,
+  options?: { clearRenderJobIds?: boolean; imagePlanApprovedAt?: string | null },
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        renderJobIds: options?.clearRenderJobIds ? [] : existing.workflow.renderJobIds,
+        imagePlanApprovedAt:
+          options && "imagePlanApprovedAt" in options
+            ? options.imagePlanApprovedAt ?? undefined
+            : existing.workflow.imagePlanApprovedAt,
       },
     };
   });

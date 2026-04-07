@@ -1,5 +1,5 @@
-export type AssetCandidateStatus = "pending" | "approved" | "rejected";
-export type AssetCandidateSource = "scene_approval";
+export type AssetApprovalStatus = "pending" | "approved" | "rejected";
+export type AssetProvider = "openai";
 
 export interface AssetCandidate {
   id: string;
@@ -7,9 +7,16 @@ export interface AssetCandidate {
   sceneId: string;
   sceneNumber: number;
   candidateIndex: number;
-  prompt: string;
-  source: AssetCandidateSource;
-  status: AssetCandidateStatus;
+  imagePrompt: string;
+  promptVersion: number;
+  provider: AssetProvider;
+  imageFilePath: string;
+  selected: boolean;
+  approvalStatus: AssetApprovalStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface GenerateSceneImagesOptions {
+  numCandidates?: number;
 }

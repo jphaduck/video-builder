@@ -16,6 +16,7 @@ export interface ProjectWorkflowRefs {
   narrationTrackIds: string[];
   captionTrackIds: string[];
   renderJobIds: string[];
+  imagePlanApprovedAt?: string;
 }
 
 export interface StoryInput {

@@ -1,15 +1,16 @@
 import "server-only";
 
-// File-backed asset candidate storage layer for reading and writing raw asset candidate records in data/assets.
+// File-backed asset storage layer for reading and writing raw image candidate metadata and image files in data/assets.
 
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getProject } from "@/lib/projects";
 import type { AssetCandidate } from "@/modules/assets/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const ASSETS_DIR = path.join(DATA_DIR, "assets");
+const IMAGE_EXTENSION = "png";
 
 let assetWriteQueue: Promise<unknown> = Promise.resolve();
 
@@ -26,8 +27,12 @@ function withAssetWriteLock<T>(operation: () => Promise<T>): Promise<T> {
   return queuedOperation;
 }
 
-function getAssetFilePath(assetId: string): string {
+function getAssetMetadataFilePath(assetId: string): string {
   return path.join(ASSETS_DIR, `${assetId}.json`);
+}
+
+function getAssetImageFilePath(assetId: string): string {
+  return path.join(ASSETS_DIR, `${assetId}.${IMAGE_EXTENSION}`);
 }
 
 function parseAssetCandidate(raw: string, filePath: string): AssetCandidate {
@@ -42,13 +47,38 @@ async function ensureAssetsDirectory(): Promise<void> {
   await mkdir(ASSETS_DIR, { recursive: true });
 }
 
+async function unlinkWithWarning(filePath: string, warningLabel: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") {
+      console.warn(`${warningLabel} was missing while deleting asset files. Continuing.`);
+      return;
+    }
+
+    throw error;
+  }
+}
+
 export async function saveAssetCandidate(asset: AssetCandidate): Promise<void> {
   await ensureAssetsDirectory();
 
   await withAssetWriteLock(async () => {
     const tempFile = path.join(ASSETS_DIR, `${asset.id}.${randomUUID()}.tmp`);
     await writeFile(tempFile, JSON.stringify(asset, null, 2), "utf8");
-    await rename(tempFile, getAssetFilePath(asset.id));
+    await rename(tempFile, getAssetMetadataFilePath(asset.id));
+  });
+}
+
+export async function saveAssetImageFile(assetId: string, buffer: Buffer): Promise<string> {
+  await ensureAssetsDirectory();
+
+  return withAssetWriteLock(async () => {
+    const filePath = getAssetImageFilePath(assetId);
+    const tempFile = path.join(ASSETS_DIR, `${assetId}.${randomUUID()}.tmp`);
+    await writeFile(tempFile, buffer);
+    await rename(tempFile, filePath);
+    return path.relative(process.cwd(), filePath);
   });
 }
 
@@ -56,7 +86,7 @@ export async function getAssetCandidate(assetId: string): Promise<AssetCandidate
   await ensureAssetsDirectory();
 
   try {
-    const filePath = getAssetFilePath(assetId);
+    const filePath = getAssetMetadataFilePath(assetId);
     const raw = await readFile(filePath, "utf8");
     return parseAssetCandidate(raw, filePath);
   } catch (error) {
@@ -81,6 +111,11 @@ export async function getAssetCandidatesForProject(projectId: string): Promise<A
     .sort((a, b) => a.sceneNumber - b.sceneNumber || a.candidateIndex - b.candidateIndex || a.createdAt.localeCompare(b.createdAt));
 }
 
+export async function getAssetCandidatesForScene(projectId: string, sceneId: string): Promise<AssetCandidate[]> {
+  const candidates = await getAssetCandidatesForProject(projectId);
+  return candidates.filter((candidate) => candidate.sceneId === sceneId);
+}
+
 export async function listAssetCandidates(): Promise<AssetCandidate[]> {
   await ensureAssetsDirectory();
   const entries = await readdir(ASSETS_DIR, { withFileTypes: true });
@@ -101,14 +136,10 @@ export async function deleteAssetCandidate(assetId: string): Promise<void> {
   await ensureAssetsDirectory();
 
   await withAssetWriteLock(async () => {
-    try {
-      await unlink(getAssetFilePath(assetId));
-    } catch (error) {
-      if (isErrnoException(error) && error.code === "ENOENT") {
-        return;
-      }
+    const asset = await getAssetCandidate(assetId);
+    const imageFilePath = asset?.imageFilePath ? path.join(process.cwd(), asset.imageFilePath) : getAssetImageFilePath(assetId);
 
-      throw error;
-    }
+    await unlinkWithWarning(imageFilePath, `Asset image ${asset?.imageFilePath ?? imageFilePath}`);
+    await unlinkWithWarning(getAssetMetadataFilePath(assetId), `Asset metadata ${assetId}`);
   });
 }

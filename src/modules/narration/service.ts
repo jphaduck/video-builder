@@ -68,7 +68,7 @@ function ensureNarrationReadyProject(project: ProjectRecord): void {
     throw new Error("Narration requires an approved script draft.");
   }
 
-  if (project.status !== "scene_ready" || project.workflow.sceneIds.length === 0) {
+  if (project.workflow.sceneIds.length === 0) {
     throw new Error("Narration requires an approved scene plan.");
   }
 }
