@@ -20,6 +20,7 @@ pnpm-debug.log*
 
 # local env files
 .env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -27,3 +28,5 @@ next-env.d.ts
 
 # local file storage
 /data/*.json
+/data/projects/*.json
+!/data/projects/.gitkeep

@@ -8,7 +8,7 @@ What exists:
 - GitHub connected to ChatGPT
 - implementation-ready planning docs
 - Next.js + TypeScript app scaffold with App Router
-- persistent local project storage using a file-backed JSON store (`data/projects.json`)
+- persistent local project storage using per-project JSON files in `data/projects/{projectId}.json`
 - working project flows:
   - create project from `/projects/new`
   - list saved projects at `/projects`
@@ -25,6 +25,10 @@ What exists:
   - draft comparison and active-draft switching
   - manual script editing that saves as a new version
   - explicit approve/reject gate before scene planning unlocks
+- foundational developer tooling:
+  - `.env.example` documents expected AI provider environment variables
+  - Vitest + Testing Library smoke testing
+  - GitHub Actions CI running lint, build, and tests on `main`
 
 What does not exist yet:
 - database implementation
