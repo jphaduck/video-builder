@@ -93,6 +93,16 @@ describe("generateStoryDraft", () => {
         }),
       ]),
     });
+    expect(createCompletion.mock.calls[1]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(
+            "The minimum word count is a floor, not the finish line. Write until the story is fully told and the ending feels complete.",
+          ),
+        }),
+      ]),
+    });
   });
 
   it("uses a 24-paragraph minimum for a 20-minute draft prompt", async () => {
@@ -305,6 +315,16 @@ describe("generateStoryDraft", () => {
           role: "user",
           content: expect.stringContaining(
             "Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.",
+          ),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(
+            "For quieter, procedural, or bureaucratic stories, treat paperwork, waiting, compliance pressure, professional isolation, and the lived consequences of each choice as real story beats rather than background exposition.",
           ),
         }),
       ]),

@@ -283,6 +283,7 @@ Story development requirements:
 - Expand those beats into full narration with scene-level detail, transitions, and internal reasoning.
 - Do not compress multiple major beats into one paragraph.
 - Spend real time in the middle of the story, not just the setup and ending.
+- The minimum word count is a floor, not the finish line. Write until the story is fully told and the ending feels complete.
 
 ${beatOutlineSection}
 `.trim();
@@ -304,9 +305,12 @@ Do not rewrite it from scratch. Instead:
 - Expand the middle section by adding 3-5 new paragraphs. Each major beat from the plot notes should occupy its own paragraph minimum.
 - Give each major plot beat its own paragraph - do not merge beats.
 - Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.
+- For quieter, procedural, or bureaucratic stories, treat paperwork, waiting, compliance pressure, professional isolation, and the lived consequences of each choice as real story beats rather than background exposition.
+- If the story's tension comes from institutions instead of pursuit, expand the delays, records, meetings, official language, and private consequences that make the pressure feel inescapable.
 - Expand the ending by at least 2 paragraphs - let the final reflection breathe and land with emotional weight.
 - Do not restate what is already written. Add new content around and between existing beats.
 - Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
+- The word target is a floor, not a stopping point. Keep writing until the story feels complete and the ending fully lands.
 
 Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
 `.trim();

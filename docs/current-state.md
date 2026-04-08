@@ -20,9 +20,12 @@ What exists:
   - beat outlines now fail clearly when the model returns no parseable numbered beats or fewer than 8 usable beats
   - stage 2 user prompts explicitly require one paragraph per beat minimum and prevent skipping beats from the outline
   - retry path now preserves the first failed draft, feeds it back as context, and asks the model to expand the middle and ending instead of regenerating a new draft from scratch
+  - the expansion retry now puts extra emphasis on bureaucratic and low-motion stories by treating paperwork, waiting, compliance pressure, isolation, and institutional language as real story beats instead of background exposition
   - script generation now targets a minimum of 650 words and 8 paragraphs for 5-minute drafts, with higher runtime requests scaling by `Math.max(8, ceil(runtimeMinutes * 1.2))`
+  - stage 2 prompts now explicitly say the word target is a floor, not a stopping point, so drafts should keep expanding until the ending feels complete
   - expected script-generation improvement target is roughly 650-900 words for 5-minute drafts instead of the earlier 420-510 word range seen in live evaluations
   - script validation now enforces minimum word count, minimum paragraph count, title quality checks, second-person voice, and anti-echo protection before a draft is accepted
+  - story titles and hooks now explicitly push for story-specific distinctiveness and more concrete, less generic opening moments
   - draft scene outlines now derive short, title-cased headings from each paragraph's first sentence and strip trailing orphaned prepositions/articles instead of using generic "Scene N" labels
   - persisted script draft versions per project with prompt metadata (`promptId`, prompt version, model, temperature)
   - draft comparison and active-draft switching

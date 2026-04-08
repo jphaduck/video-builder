@@ -165,3 +165,8 @@
 - Decision: Derive scene outline headings from the paragraph’s first sentence (with a short-fragment fallback) instead of generic scene labels.
 - Why: Narrative headings make scene outlines more useful for image planning, voice review, and downstream timeline work.
 - Impact: Scene outline items remain ordered by numeric index, but their headings now reflect the script content directly.
+
+## 2026-04-08 - Live-eval findings now shape story-specific titles, hooks, and retry expansion
+- Decision: Use the live evaluation harness results to tighten story draft prompts around three observed weak spots: generic interchangeable titles, repetitive desk-bound hook openings, and retry under-expansion on quieter bureaucratic stories.
+- Why: The 50-run evaluation showed the pipeline was broadly stable, but quality dipped in exactly those areas while other suspected issues like outline count and network reliability were not primary problems.
+- Impact: Story prompts now demand story-specific title distinctiveness and more concrete opening moments, while the expansion retry spends more time on paperwork, waiting, institutional language, and lived consequences when the story’s tension is procedural rather than chase-driven.
