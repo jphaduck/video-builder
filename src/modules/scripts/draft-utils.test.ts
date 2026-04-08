@@ -17,9 +17,9 @@ describe("buildSceneOutline", () => {
     expect(outline).toHaveLength(6);
     expect(outline[0]).toMatchObject({
       sceneNumber: 1,
-      heading: "Notice First Anomaly Silent",
+      heading: "You Notice The First Anomaly",
     });
-    expect(outline[3]?.heading).not.toBe("Scene 4");
+    expect(outline[3]?.heading).toBe("Every Minor Delay In The System Feels Louder");
     expect(outline.at(-1)?.summary).toContain("life that functions but cannot expand");
   });
 });

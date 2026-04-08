@@ -1,19 +1,10 @@
 import type { GeneratedStoryDraft } from "@/modules/scripts/types";
 
-export function countWords(value: string): number {
-  return value.split(/\s+/).filter(Boolean).length;
-}
-
-const HEADING_STOPWORDS = new Set([
+const TRAILING_HEADING_WORDS = new Set([
   "a",
-  "about",
-  "after",
-  "all",
   "an",
   "and",
-  "as",
   "at",
-  "before",
   "but",
   "by",
   "for",
@@ -23,13 +14,36 @@ const HEADING_STOPWORDS = new Set([
   "of",
   "on",
   "or",
+  "so",
   "the",
   "through",
   "to",
   "with",
-  "you",
-  "your",
 ]);
+const TRAILING_ORPHANED_HEADING_WORDS = new Set([
+  "bare",
+  "black",
+  "blue",
+  "cold",
+  "dark",
+  "dim",
+  "empty",
+  "faint",
+  "gray",
+  "grey",
+  "quiet",
+  "red",
+  "silent",
+  "small",
+  "still",
+  "thin",
+  "weak",
+  "white",
+]);
+
+export function countWords(value: string): number {
+  return value.split(/\s+/).filter(Boolean).length;
+}
 
 function getNarrativeParagraphs(script: string): string[] {
   return script
@@ -65,28 +79,58 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
-function buildHeadingFromText(text: string, index: number): string {
+function getWords(value: string): string[] {
+  return value
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
+function getHeadingSourceText(text: string): string {
   const firstSentence = text
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => sentence.trim())
     .find(Boolean);
 
-  if (!firstSentence) {
+  if (firstSentence) {
+    const firstSentenceWords = getWords(firstSentence);
+    if (firstSentenceWords.length >= 4) {
+      return firstSentenceWords.slice(0, 8).join(" ");
+    }
+  }
+
+  return getWords(text).slice(0, 8).join(" ");
+}
+
+function trimTrailingHeadingWords(words: string[]): string[] {
+  const trimmedWords = [...words];
+
+  while (trimmedWords.length > 0) {
+    const trailingWord = trimmedWords.at(-1)?.toLowerCase();
+    if (
+      !trailingWord ||
+      (!TRAILING_HEADING_WORDS.has(trailingWord) && !TRAILING_ORPHANED_HEADING_WORDS.has(trailingWord))
+    ) {
+      break;
+    }
+
+    trimmedWords.pop();
+  }
+
+  return trimmedWords.length >= 3 ? trimmedWords : words;
+}
+
+function buildHeadingFromText(text: string, index: number): string {
+  const rawHeadingWords = getWords(getHeadingSourceText(text).replace(/[^a-zA-Z0-9'\s-]/g, " ")).slice(0, 8);
+  const headingWords = trimTrailingHeadingWords(rawHeadingWords);
+  const headingSource = headingWords.join(" ").trim();
+
+  if (!headingSource) {
     return `Scene ${index + 1}`;
   }
 
-  const keywords = firstSentence
-    .replace(/[^a-zA-Z0-9'\s-]/g, " ")
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 3)
-    .filter((word) => !HEADING_STOPWORDS.has(word.toLowerCase()));
-
-  if (keywords.length === 0) {
-    return `Scene ${index + 1}`;
-  }
-
-  return toTitleCase(keywords.slice(0, 4).join(" "));
+  return toTitleCase(headingSource);
 }
 
 export function buildSceneOutline(script: string): GeneratedStoryDraft["sceneOutline"] {

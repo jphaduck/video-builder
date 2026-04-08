@@ -3,7 +3,17 @@ import { getOpenAIClient } from "@/lib/ai";
 import { buildSceneOutline, countWords } from "@/modules/scripts/draft-utils";
 import type { GeneratedStoryDraft, StoryGenerationInput, StoryOutput } from "@/modules/scripts/types";
 
+const BEAT_OUTLINE_SYSTEM_PROMPT = `
+You are a story structure editor. Produce a numbered beat outline only.
+Each beat must be one sentence.
+Cover the story from opening to close.
+Use the plot notes as your source.
+Do not write narration.
+Each beat must identify who is involved, what is happening, and what is at stake.
+Keep the beats chronological.
+`.trim();
 const SHORT_SCRIPT_ERROR = "OpenAI response script is too short for target runtime.";
+const RETRY_SHORT_SCRIPT_ERROR = "Retry draft is still too short for target runtime.";
 const TOO_FEW_PARAGRAPHS_ERROR = "OpenAI response script does not have enough paragraph structure for the target runtime.";
 const FLAT_SCRIPT_ERROR = "OpenAI response script is too structurally flat for the target runtime.";
 const TITLE_FRAGMENT_ERROR = "OpenAI response titles must be complete and publication-ready.";
@@ -122,12 +132,16 @@ function hasEchoedInput(output: string, input: StoryGenerationInput): boolean {
   return candidates.some((candidate) => normalizedOutput.includes(candidate));
 }
 
+function getTargetBeatCount(input: StoryGenerationInput): number {
+  return Math.min(20, Math.max(12, input.targetRuntimeMin * 2));
+}
+
 function getMinimumNarrativeWordCount(input: StoryGenerationInput): number {
-  return Math.max(400, Math.round(input.targetRuntimeMin * 100));
+  return Math.max(650, input.targetRuntimeMin * 130);
 }
 
 function getMinimumParagraphCount(input: StoryGenerationInput): number {
-  return Math.max(6, Math.ceil(input.targetRuntimeMin * 0.75));
+  return Math.max(8, Math.ceil(input.targetRuntimeMin * 1.2));
 }
 
 function isObviouslyFragmentedTitle(title: string): boolean {
@@ -168,6 +182,28 @@ function isObviouslyFragmentedTitle(title: string): boolean {
   }
 
   return false;
+}
+
+function parseBeatOutline(content: string): string[] {
+  const numberedLines = content
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /^\d+[\.\)]\s+/.test(line));
+
+  if (numberedLines.length === 0) {
+    throw new Error("Beat outline could not be parsed. Generation aborted.");
+  }
+
+  const beats = numberedLines
+    .map((line) => line.replace(/^\d+[\.\)]\s+/, "").trim())
+    .filter(Boolean);
+
+  if (beats.length < 8) {
+    throw new Error(`Beat outline returned too few beats (${beats.length}). Generation aborted.`);
+  }
+
+  return beats;
 }
 
 function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput): void {
@@ -213,24 +249,14 @@ function validateCreativeOutput(output: StoryOutput, input: StoryGenerationInput
 
 function buildUserPrompt(
   input: StoryGenerationInput,
-  options?: { minimumWordCount?: number; minimumParagraphCount?: number; isRetry?: boolean },
+  options?: { minimumWordCount?: number; minimumParagraphCount?: number; beatOutline?: string[] },
 ): string {
   const minimumWordCount = options?.minimumWordCount ?? getMinimumNarrativeWordCount(input);
   const minimumParagraphCount = options?.minimumParagraphCount ?? getMinimumParagraphCount(input);
-  const retryInstruction = options?.isRetry
+  const beatOutlineSection = options?.beatOutline?.length
     ? `
-Important retry instruction:
-- Your previous draft was too short or too compressed.
-- Return a fuller, more cinematic version of the same story concept.
-- The "script" field must be at least ${minimumWordCount} words.
-- Use at least ${minimumParagraphCount} clear paragraphs.
-- Add more scene-level detail instead of summarizing events.
-- Add more procedural detail and internal decision-making.
-- Give the middle of the story more space, especially discovery, controlled risk, escalation, and attrition.
-- Develop the turning points more clearly.
-- Make the escalation more concrete.
-- End with a stronger closing reflection.
-- Make sure each title is complete and publication-ready.
+Beat outline:
+${options.beatOutline.map((beat, index) => `${index + 1}. ${beat}`).join("\n")}
 `.trim()
     : "";
 
@@ -246,18 +272,103 @@ Minimum paragraph count: ${minimumParagraphCount}
 
 Story development requirements:
 - Use the plot notes as the chronological spine when they are present.
+- Use the beat outline below as the structural plan for the full narration.
 - Preserve the major beats from the notes in order.
+- Each major beat should occupy its own paragraph.
+- Do not merge multiple distinct beats into one paragraph unless they happen simultaneously.
+- Do not skip any beat from the notes.
+- Write one paragraph per beat minimum.
+- Do not skip any beat.
+- Do not merge more than two closely related beats into one paragraph.
 - Expand those beats into full narration with scene-level detail, transitions, and internal reasoning.
 - Do not compress multiple major beats into one paragraph.
 - Spend real time in the middle of the story, not just the setup and ending.
 
-${retryInstruction}
+${beatOutlineSection}
 `.trim();
+}
+
+function buildExpansionPrompt(
+  input: StoryGenerationInput,
+  previousFailure: string,
+): string {
+  const minimumWordCount = getMinimumNarrativeWordCount(input);
+  const minimumParagraphCount = getMinimumParagraphCount(input);
+
+  return `
+The draft above is a good start but needs to be expanded significantly.
+It failed validation because: ${previousFailure}
+
+Do not rewrite it from scratch. Instead:
+- Keep the opening paragraph exactly as written.
+- Expand the middle section by adding 3-5 new paragraphs. Each major beat from the plot notes should occupy its own paragraph minimum.
+- Give each major plot beat its own paragraph - do not merge beats.
+- Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.
+- Expand the ending by at least 2 paragraphs - let the final reflection breathe and land with emotional weight.
+- Do not restate what is already written. Add new content around and between existing beats.
+- Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
+
+Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
+`.trim();
+}
+
+function buildExpansionDraftText(previousOutput: StoryOutput): string {
+  return `
+Title options:
+${previousOutput.titleOptions.map((title) => `- ${title}`).join("\n")}
+
+Hook:
+${previousOutput.hook}
+
+Script:
+${previousOutput.script}
+`.trim();
+}
+
+function buildBeatOutlinePrompt(input: StoryGenerationInput): string {
+  return `
+Project name: ${formatPromptValue(input.projectName)}
+Theme: ${formatPromptValue(input.theme)}
+Premise: ${formatPromptValue(input.premise)}
+Plot notes: ${formatPromptValue(input.plotNotes)}
+Tone: ${formatPromptValue(input.tone)}
+Target runtime (minutes): ${input.targetRuntimeMin}
+Target beat count: ${getTargetBeatCount(input)}
+
+Instructions:
+- Produce a numbered list only.
+- Use 12 to 20 beats.
+- Keep the beats chronological from opening to close.
+- Use the plot notes as your source of truth when they are present.
+- Each beat must be exactly one sentence.
+- Each beat should make clear who is involved, what is happening, and what is at stake.
+- Do not write narration prose.
+`.trim();
+}
+
+export async function generateBeatOutline(input: StoryGenerationInput): Promise<string[]> {
+  const openai = getOpenAIClient();
+
+  const response = await openai.chat.completions.create({
+    model: STORY_DRAFT_PROMPT.model,
+    temperature: 0.4,
+    messages: [
+      { role: "system", content: BEAT_OUTLINE_SYSTEM_PROMPT },
+      { role: "user", content: buildBeatOutlinePrompt(input) },
+    ],
+  });
+
+  const content = response.choices[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error("OpenAI returned an empty beat outline response.");
+  }
+
+  return parseBeatOutline(content);
 }
 
 async function requestStoryOutput(
   input: StoryGenerationInput,
-  options?: { isRetry?: boolean },
+  beatOutline: string[],
 ): Promise<StoryOutput> {
   const openai = getOpenAIClient();
 
@@ -272,7 +383,7 @@ async function requestStoryOutput(
         content: buildUserPrompt(input, {
           minimumWordCount: getMinimumNarrativeWordCount(input),
           minimumParagraphCount: getMinimumParagraphCount(input),
-          isRetry: options?.isRetry,
+          beatOutline,
         }),
       },
     ],
@@ -286,8 +397,53 @@ async function requestStoryOutput(
   return parseStoryOutput(content);
 }
 
+async function requestExpandedStoryOutput(
+  input: StoryGenerationInput,
+  beatOutline: string[],
+  previousOutput: StoryOutput,
+  previousFailure: string,
+): Promise<StoryOutput> {
+  const openai = getOpenAIClient();
+
+  const response = await openai.chat.completions.create({
+    model: STORY_DRAFT_PROMPT.model,
+    temperature: STORY_DRAFT_PROMPT.temperature,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: STORY_DRAFT_PROMPT.systemPrompt,
+      },
+      {
+        role: "user",
+        content: buildUserPrompt(input, {
+          minimumWordCount: getMinimumNarrativeWordCount(input),
+          minimumParagraphCount: getMinimumParagraphCount(input),
+          beatOutline,
+        }),
+      },
+      {
+        role: "assistant",
+        content: buildExpansionDraftText(previousOutput),
+      },
+      {
+        role: "user",
+        content: buildExpansionPrompt(input, previousFailure),
+      },
+    ],
+  });
+
+  const content = response.choices[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error("OpenAI returned an empty response.");
+  }
+
+  return parseStoryOutput(content);
+}
+
 export async function generateStoryDraft(input: StoryGenerationInput): Promise<GeneratedStoryDraft> {
-  let output = await requestStoryOutput(input);
+  const beatOutline = await generateBeatOutline(input);
+  let output = await requestStoryOutput(input, beatOutline);
 
   try {
     validateCreativeOutput(output, input);
@@ -296,8 +452,17 @@ export async function generateStoryDraft(input: StoryGenerationInput): Promise<G
       throw error;
     }
 
-    output = await requestStoryOutput(input, { isRetry: true });
-    validateCreativeOutput(output, input);
+    output = await requestExpandedStoryOutput(input, beatOutline, output, error.message);
+
+    try {
+      validateCreativeOutput(output, input);
+    } catch (retryError) {
+      if (retryError instanceof Error && retryError.message === SHORT_SCRIPT_ERROR) {
+        throw new Error(RETRY_SHORT_SCRIPT_ERROR);
+      }
+
+      throw retryError;
+    }
   }
 
   return {

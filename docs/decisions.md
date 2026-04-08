@@ -145,3 +145,23 @@
 - Decision: Approving a scene now ensures that placeholder asset candidates are created from the approved image prompt.
 - Why: This gives the next image milestone a stable, persisted handoff artifact without adding image generation itself yet.
 - Impact: Scene approval has a downstream persistence side effect, and scene-plan invalidation must clear asset candidate records along with other derived artifacts.
+
+## 2026-04-07 - Script retry now expands the failed draft instead of regenerating from scratch
+- Decision: When a script draft fails retryable validation, keep the first draft and ask the model to expand it rather than requesting a brand-new second draft.
+- Why: Live evaluations showed that a fresh second pass only added a small amount of length and often repeated the same compressed structure.
+- Impact: Script retries now preserve the initial opening and structure while targeting a fuller middle and ending, and short-on-retry failures surface as a distinct final error.
+
+## 2026-04-07 - Script generation now uses a two-stage outline-then-script flow
+- Decision: Generate a 12-20 beat structural outline first, then write the full narration from that outline.
+- Why: Separating planning from narration reduces summary-style compression and gives the full draft a clearer structural spine.
+- Impact: Every script generation now uses two model calls before any retry, and stage-2 prompts must include the generated beat outline as context.
+
+## 2026-04-07 - Script validation floors were raised for cinematic pacing
+- Decision: Raise the minimum accepted script target to `Math.max(650, runtimeMinutes * 130)` words and `Math.max(10, runtimeMinutes * 2)` paragraphs.
+- Why: Earlier thresholds allowed technically valid drafts that still felt like compressed synopses, especially at 5-minute targets.
+- Impact: Shorter and flatter drafts are rejected more aggressively, and retry/expansion prompts must target the higher runtime floor explicitly.
+
+## 2026-04-07 - Draft scene headings now come from paragraph content
+- Decision: Derive scene outline headings from the paragraph’s first sentence (with a short-fragment fallback) instead of generic scene labels.
+- Why: Narrative headings make scene outlines more useful for image planning, voice review, and downstream timeline work.
+- Impact: Scene outline items remain ordered by numeric index, but their headings now reflect the script content directly.
