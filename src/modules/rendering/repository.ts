@@ -43,6 +43,26 @@ export async function saveRenderJob(job: RenderJob): Promise<void> {
   });
 }
 
+export async function updateRenderJob(
+  jobId: string,
+  updater: (job: RenderJob) => Promise<RenderJob> | RenderJob,
+): Promise<RenderJob> {
+  await ensureRenderingDirectory();
+
+  return withRenderWriteLock(async () => {
+    const currentJob = await getRenderJob(jobId);
+    if (!currentJob) {
+      throw new Error(`Render job not found: ${jobId}`);
+    }
+
+    const updatedJob = await updater(currentJob);
+    const tempFile = path.join(RENDERING_DIR, `${updatedJob.id}.${randomUUID()}.tmp`);
+    await writeFile(tempFile, JSON.stringify(updatedJob, null, 2), "utf8");
+    await rename(tempFile, getRenderJobFilePath(updatedJob.id));
+    return updatedJob;
+  });
+}
+
 export async function getRenderJob(jobId: string): Promise<RenderJob | null> {
   await ensureRenderingDirectory();
 
@@ -75,10 +95,41 @@ export async function listRenderJobs(projectId: string): Promise<RenderJob[]> {
   return jobs.filter((job) => job.projectId === projectId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+export async function getLatestRenderJobForProject(projectId: string): Promise<RenderJob | null> {
+  const jobs = await listRenderJobs(projectId);
+  return jobs.at(-1) ?? null;
+}
+
 export async function deleteRenderJob(jobId: string): Promise<void> {
   await ensureRenderingDirectory();
 
   await withRenderWriteLock(async () => {
+    const job = await getRenderJob(jobId);
+    const cleanupPaths = new Set<string>();
+
+    if (job) {
+      if (job.outputFilePath) {
+        cleanupPaths.add(path.join(process.cwd(), job.outputFilePath));
+      }
+
+      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}.srt`));
+      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.mp3`));
+      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-images.txt`));
+      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.txt`));
+    }
+
+    for (const filePath of cleanupPaths) {
+      try {
+        await unlink(filePath);
+      } catch (error) {
+        if (isErrnoException(error) && error.code === "ENOENT") {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
     try {
       await unlink(getRenderJobFilePath(jobId));
     } catch (error) {

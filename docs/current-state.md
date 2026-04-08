@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Timeline draft assembly and read-only review are now wired. Final rendering/export is the next major milestone.
+Milestone 6 render/export is now implemented end to end. The next priorities are image-generation provider polish, broader UI polish, and production-ready storage.
 
 What exists:
 - repo created
@@ -68,8 +68,16 @@ What exists:
   - read-only timeline review panel on the project detail page with scene heading, thumbnail/placeholder, narration duration, caption preview, and cumulative start offset
   - timeline build is gated on approved narration plus a current non-stale caption track
   - building a timeline draft moves the project to `timeline_ready`
-- next-stage scaffolding:
-  - file-backed rendering job module in `src/modules/rendering`
+- rendering workflow:
+  - file-backed render job metadata stored in `data/rendering/{renderJobId}.json`
+  - temp render artifacts stored in `data/rendering/`, including merged narration audio and burned-caption `.srt`
+  - final MP4 exports written to `data/renders/{projectId}.mp4`
+  - FFmpeg-based slideshow rendering that holds each scene still for its narration duration, merges per-scene narration into one audio track, and burns captions directly into the video
+  - Sharp-generated 1920x1080 placeholder images when no approved still exists for a scene
+  - async render start/status route at `/api/projects/[projectId]/render`
+  - browser video streaming route at `/api/projects/[projectId]/render/stream`
+  - render panel on the project detail page with polling status, HTML5 playback, and download link
+  - successful renders promote the project to `rendered`
 - foundational developer tooling:
   - `.env.example` documents current and future-facing AI provider variables
   - MIT license committed
@@ -78,17 +86,18 @@ What exists:
 
 What does not exist yet:
 - editable timeline controls
-- Remotion render/export implementation
 - background jobs/queueing
 - database-backed persistence
+- production-grade remote asset/render storage
+- deeper image-generation provider tuning and polish
 
 Current priority:
-Promote the new timeline review stage into a real render/export flow.
+Polish the now-complete generation pipeline for production use, starting with image-generation quality/provider tuning, review UX polish, and storage hardening.
 
 Next 3 tasks:
-1. build the render/export stage on top of the saved timeline draft
-2. add timeline editing controls before final rendering
-3. persist render jobs and final video artifacts end to end
+1. improve image-generation/provider quality and production wiring
+2. add editable timeline controls and higher-quality review polish
+3. move local file persistence toward production-ready storage and job handling
 
 Files to read first next session:
 - AGENTS.md

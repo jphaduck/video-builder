@@ -512,6 +512,23 @@ export async function saveCaptionTrackForProject(projectId: string, trackId: str
   return normalizeProject(updatedProject);
 }
 
+export async function saveRenderJobForProject(projectId: string, renderJobId: string): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        renderJobIds: appendUniqueId(existing.workflow.renderJobIds, renderJobId),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
 export async function addAssetCandidateIdsToProject(projectId: string, assetIds: string[]): Promise<ProjectRecord> {
   const updatedProject = await updateStoredProject(projectId, (project) => {
     const existing = normalizeProject(project);

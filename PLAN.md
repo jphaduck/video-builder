@@ -1,7 +1,7 @@
 # PLAN.md
 
 Current milestone:
-Milestone 6 — timeline assembly and final rendering
+Milestones 1 through 6 are complete
 
 ## Milestone 1: Project persistence
 Status: complete
@@ -99,7 +99,11 @@ Validation:
 - npm run build
 
 ## Milestone 6: Render pipeline
-Status: next
+Status: complete
+
+Note:
+- Implemented with the existing file-backed timeline and rendering modules plus a real FFmpeg-based slideshow exporter.
+- Timeline review is now wired on the project detail page, and the render panel streams the finished MP4 back through the app.
 
 Goal:
 Render a slideshow-style MP4 with still images, motion, subtitles, and narration.
@@ -114,3 +118,9 @@ Validation:
 - npm run typecheck
 - npm run build
 - render one test video successfully
+
+## What's next
+
+- real image-generation provider tuning and production wiring
+- UI polish across script, scene, timeline, and render review surfaces
+- production-ready storage and job execution beyond local file persistence

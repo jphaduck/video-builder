@@ -180,3 +180,8 @@
 - Decision: Treat timeline assembly as available when the latest narration track is approved and the latest caption track exists and is not stale, then mark the project `timeline_ready` once the draft is built.
 - Why: The codebase does not have a separate caption approval model today, so the safest real gating signal is a current caption track paired to the approved narration.
 - Impact: The timeline review UI can ship without inventing a parallel caption-approval state, and rebuilds can invalidate any future render jobs by returning the project to the timeline-ready stage.
+
+## 2026-04-08 - Final video export uses local FFmpeg with placeholder still fallback
+- Decision: Implement the first real render/export milestone with a local FFmpeg slideshow pipeline that merges narration audio, burns SRT captions into the video, and writes a final MP4 to `data/renders/`, while using Sharp-generated placeholder stills when no approved scene image is available.
+- Why: The rendering scaffold already had local file-backed timeline and render-job storage, so FFmpeg was the smallest path to a real playable export without introducing a larger composition framework first.
+- Impact: Render jobs now track `rendering` / `complete` / `error` state, the UI can poll and stream finished MP4s, and missing scene images no longer block final rendering outright.

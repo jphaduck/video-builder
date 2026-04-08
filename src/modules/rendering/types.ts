@@ -1,4 +1,4 @@
-export type RenderJobStatus = "pending" | "ready";
+export type RenderJobStatus = "pending" | "rendering" | "complete" | "error";
 
 export interface RenderJob {
   id: string;
@@ -6,6 +6,7 @@ export interface RenderJob {
   timelineDraftId: string;
   status: RenderJobStatus;
   outputFilePath: string | null;
+  errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -4,6 +4,7 @@ import { AssetPanel } from "@/components/asset-panel";
 import { CaptionPanel } from "@/components/caption-panel";
 import { NarrationPanel } from "@/components/narration-panel";
 import { ProjectShell } from "@/components/project-shell";
+import { RenderPanel } from "@/components/render-panel";
 import { ScenePlanningPanel } from "@/components/scene-planning-panel";
 import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
@@ -12,6 +13,7 @@ import { getAssetCandidatesForProject } from "@/modules/assets/repository";
 import { markCaptionTrackStale } from "@/modules/captions/service";
 import { getCaptionTrack } from "@/modules/captions/repository";
 import { getNarrationTrack } from "@/modules/narration/repository";
+import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
 import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
@@ -61,6 +63,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const narrationTrack = activeNarrationTrackId ? await getNarrationTrack(activeNarrationTrackId) : null;
   let captionTrack = activeCaptionTrackId ? await getCaptionTrack(activeCaptionTrackId) : null;
   const timelineDraft = await getTimelineDraftForProject(project.id);
+  const latestRenderJob = await getLatestRenderJobForProject(project.id);
 
   if (
     captionTrack &&
@@ -257,6 +260,8 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         initialTimelineDraft={timelineDraft}
         canBuildTimeline={canBuildTimeline}
       />
+
+      {timelineDraft ? <RenderPanel projectId={project.id} initialRenderJob={latestRenderJob} /> : null}
 
       <ProjectShell
         isScriptApproved={hasApprovedDraft}
