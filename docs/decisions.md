@@ -130,3 +130,43 @@
 - Decision: Treat the last ID in `project.workflow.narrationTrackIds` and `project.workflow.captionTrackIds` as the active track for UI purposes, and mark the latest caption track stale when its `narrationTrackId` no longer matches the latest narration track.
 - Why: The current project type already stores workflow track histories but does not have dedicated active-track fields, and adding new project fields was not necessary for Milestone 5.
 - Impact: Page loads and narration regeneration paths must compare the latest workflow IDs, preserve older caption history, and surface a warning when captions no longer match the current narration audio.
+
+## 2026-04-07 - Prompt specs are centralized and versioned
+- Decision: Move LLM prompts into `src/lib/prompts.ts` and persist `{ promptId, promptVersion, model, temperature }` on generated script drafts and scenes.
+- Why: Prompt text and inference settings are now part of the artifact provenance, which makes future prompt iteration safer and more traceable.
+- Impact: Generated artifacts must record prompt metadata, and prompt changes should increment the prompt version instead of silently replacing inline strings.
+
+## 2026-04-07 - Caption timelines use measured narration durations as scene offsets
+- Decision: Offset caption segment timestamps by the measured MP3 duration of earlier narration scenes, and export `.srt` / `.vtt` sidecars whenever a caption track changes.
+- Why: Whisper timestamps are scene-local, but the final timeline needs project-wide timings that line up with real narration audio instead of estimated speech lengths.
+- Impact: Narration tracks must store `measuredDurationSeconds`, caption generation must accumulate those offsets, and caption edits must regenerate subtitle export files.
+
+## 2026-04-07 - Scene approval seeds asset candidates instead of waiting for a separate bootstrap step
+- Decision: Approving a scene now ensures that placeholder asset candidates are created from the approved image prompt.
+- Why: This gives the next image milestone a stable, persisted handoff artifact without adding image generation itself yet.
+- Impact: Scene approval has a downstream persistence side effect, and scene-plan invalidation must clear asset candidate records along with other derived artifacts.
+
+## 2026-04-07 - Script retry now expands the failed draft instead of regenerating from scratch
+- Decision: When a script draft fails retryable validation, keep the first draft and ask the model to expand it rather than requesting a brand-new second draft.
+- Why: Live evaluations showed that a fresh second pass only added a small amount of length and often repeated the same compressed structure.
+- Impact: Script retries now preserve the initial opening and structure while targeting a fuller middle and ending, and short-on-retry failures surface as a distinct final error.
+
+## 2026-04-07 - Script generation now uses a two-stage outline-then-script flow
+- Decision: Generate a 12-20 beat structural outline first, then write the full narration from that outline.
+- Why: Separating planning from narration reduces summary-style compression and gives the full draft a clearer structural spine.
+- Impact: Every script generation now uses two model calls before any retry, and stage-2 prompts must include the generated beat outline as context.
+
+## 2026-04-07 - Script validation floors were raised for cinematic pacing
+- Decision: Raise the minimum accepted script target to `Math.max(650, runtimeMinutes * 130)` words and `Math.max(10, runtimeMinutes * 2)` paragraphs.
+- Why: Earlier thresholds allowed technically valid drafts that still felt like compressed synopses, especially at 5-minute targets.
+- Impact: Shorter and flatter drafts are rejected more aggressively, and retry/expansion prompts must target the higher runtime floor explicitly.
+
+## 2026-04-07 - Draft scene headings now come from paragraph content
+- Decision: Derive scene outline headings from the paragraph’s first sentence (with a short-fragment fallback) instead of generic scene labels.
+- Why: Narrative headings make scene outlines more useful for image planning, voice review, and downstream timeline work.
+- Impact: Scene outline items remain ordered by numeric index, but their headings now reflect the script content directly.
+
+## 2026-04-08 - Live-eval findings now shape story-specific titles, hooks, and retry expansion
+- Decision: Use the live evaluation harness results to tighten story draft prompts around three observed weak spots: generic interchangeable titles, repetitive desk-bound hook openings, and retry under-expansion on quieter bureaucratic stories.
+- Why: The 50-run evaluation showed the pipeline was broadly stable, but quality dipped in exactly those areas while other suspected issues like outline count and network reliability were not primary problems.
+- Impact: Story prompts now demand story-specific title distinctiveness and more concrete opening moments, while the expansion retry spends more time on paperwork, waiting, institutional language, and lived consequences when the story’s tension is procedural rather than chase-driven.

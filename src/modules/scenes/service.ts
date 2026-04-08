@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { getOpenAIClient } from "@/lib/ai";
 import {
+  IMAGE_PROMPT_REFINEMENT_PROMPT,
+  REGENERATE_SCENE_PROMPT,
+  SCENE_PLAN_PROMPT,
+  getPromptMeta,
+} from "@/lib/prompts";
+import {
   approveScenePlanForProject,
   clearScenePlanForProject,
   getProjectById,
@@ -21,88 +27,6 @@ type GeneratedScenePlanItem = {
 };
 
 type RegeneratedSceneOutput = Omit<GeneratedScenePlanItem, "sceneNumber" | "scriptExcerpt">;
-
-const DURATION_RULES = `
-- Hooks, reveals, and tension spikes: 8-18 seconds
-- Transitions and connective tissue: 10-20 seconds
-- Exposition and world-building: 20-45 seconds
-- Emotional beats and major narration moments: 25-60 seconds
-- Total scene durations should roughly match the project's target runtime in seconds
-- Err toward more scenes over fewer; aim for roughly 1 scene per 20-35 seconds of runtime
-`.trim();
-
-const IMAGE_PROMPT_RULES = `
-- Write each image prompt as a single, rich descriptive paragraph of 2-4 sentences
-- Describe: the setting, the lighting quality, the emotional atmosphere, the compositional framing (wide shot, close-up, overhead, etc.)
-- Never include people's faces as the focal point unless the scene demands it - prefer silhouettes, environmental storytelling, and symbolic imagery
-- Never include text, captions, watermarks, or UI elements in the description
-- Avoid generic phrases like "dark and moody" or "cinematic" without specifics - instead say what the light source is, what time of day it is, what textures are present
-- Match the dramatic weight of the moment: a tense revelation should feel claustrophobic and shadow-heavy; an emotional payoff should feel expansive and warm
-- Write for a still image, not a video frame - the image should stand on its own as a visual story beat
-- Style target: painterly realism, high detail, muted or desaturated color grading appropriate to the tone of the scene, no fantasy or cartoon elements unless the story specifically calls for it
-`.trim();
-
-const VISUAL_INTENT_RULES = `
-- visualIntent should be 1-2 sentences describing what emotional or narrative purpose the image serves in the story
-- visualIntent should explain what the viewer should feel or understand, not what the image literally looks like
-- Example: "Conveys the protagonist's isolation and the scale of what they're facing. The emptiness of the environment should feel threatening, not peaceful."
-`.trim();
-
-const SCENE_PLAN_SYSTEM_PROMPT = `
-You are a senior scene planner for long-form YouTube story videos.
-Convert an approved narration script into a scene plan for a slideshow-style video with still images.
-
-Return strictly valid JSON only as an array. Do not wrap the array in an object. Do not include markdown.
-Each array element must have this exact shape:
-{
-  "sceneNumber": number,
-  "heading": string,
-  "scriptExcerpt": string,
-  "sceneSummary": string,
-  "durationTargetSeconds": number,
-  "visualIntent": string,
-  "imagePrompt": string
-}
-
-Duration targeting rules:
-${DURATION_RULES}
-
-Image prompt rules:
-${IMAGE_PROMPT_RULES}
-
-Visual intent rules:
-${VISUAL_INTENT_RULES}
-`.trim();
-
-const REGENERATE_SCENE_SYSTEM_PROMPT = `
-You are regenerating one scene within an approved YouTube story scene plan.
-
-Return strictly valid JSON only with this exact shape:
-{
-  "heading": string,
-  "sceneSummary": string,
-  "durationTargetSeconds": number,
-  "visualIntent": string,
-  "imagePrompt": string
-}
-
-Duration targeting rules:
-${DURATION_RULES}
-
-Image prompt rules:
-${IMAGE_PROMPT_RULES}
-
-Visual intent rules:
-${VISUAL_INTENT_RULES}
-`.trim();
-
-const IMAGE_PROMPT_SYSTEM_PROMPT = `
-You are refining one image prompt for a YouTube story scene.
-Return strictly valid JSON only. Return either a JSON string containing the image prompt or an object like {"imagePrompt":"..."}.
-
-Image prompt rules:
-${IMAGE_PROMPT_RULES}
-`.trim();
 
 function extractJson(raw: string): unknown {
   const stripped = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
@@ -258,6 +182,7 @@ function buildSceneRecord(input: CreateSceneInput): Scene {
     source: "generated",
     createdAt: timestamp,
     updatedAt: timestamp,
+    llmMeta: input.llmMeta,
   };
 }
 
@@ -366,10 +291,10 @@ export async function generateScenePlan(projectId: string): Promise<Scene[]> {
 
   const openai = getOpenAIClient();
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0.4,
+    model: SCENE_PLAN_PROMPT.model,
+    temperature: SCENE_PLAN_PROMPT.temperature,
     messages: [
-      { role: "system", content: SCENE_PLAN_SYSTEM_PROMPT },
+      { role: "system", content: SCENE_PLAN_PROMPT.systemPrompt },
       { role: "user", content: buildScenePlanUserPrompt(project, approvedDraft) },
     ],
   });
@@ -392,6 +317,7 @@ export async function generateScenePlan(projectId: string): Promise<Scene[]> {
       durationTargetSeconds: scenePlanItem.durationTargetSeconds,
       visualIntent: scenePlanItem.visualIntent,
       imagePrompt: scenePlanItem.imagePrompt,
+      llmMeta: getPromptMeta(SCENE_PLAN_PROMPT),
     }),
   );
 
@@ -423,11 +349,11 @@ export async function regenerateScene(sceneId: string): Promise<Scene> {
   const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0.5,
+    model: REGENERATE_SCENE_PROMPT.model,
+    temperature: REGENERATE_SCENE_PROMPT.temperature,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: REGENERATE_SCENE_SYSTEM_PROMPT },
+      { role: "system", content: REGENERATE_SCENE_PROMPT.systemPrompt },
       { role: "user", content: buildRegenerateSceneUserPrompt(project, approvedDraft, existingScene, projectScenes) },
     ],
   });
@@ -449,6 +375,7 @@ export async function regenerateScene(sceneId: string): Promise<Scene> {
     approvalStatus: "pending",
     source: "generated",
     updatedAt: new Date().toISOString(),
+    llmMeta: getPromptMeta(REGENERATE_SCENE_PROMPT),
   };
 
   await saveScene(updatedScene);
@@ -460,10 +387,10 @@ export async function regenerateImagePrompt(sceneId: string): Promise<Scene> {
   const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0.6,
+    model: IMAGE_PROMPT_REFINEMENT_PROMPT.model,
+    temperature: IMAGE_PROMPT_REFINEMENT_PROMPT.temperature,
     messages: [
-      { role: "system", content: IMAGE_PROMPT_SYSTEM_PROMPT },
+      { role: "system", content: IMAGE_PROMPT_REFINEMENT_PROMPT.systemPrompt },
       {
         role: "user",
         content: `
@@ -484,6 +411,7 @@ Current image prompt: ${existingScene.imagePrompt}
     approvalStatus: "pending",
     source: "manual_edit",
     updatedAt: new Date().toISOString(),
+    llmMeta: getPromptMeta(IMAGE_PROMPT_REFINEMENT_PROMPT),
   };
 
   await saveScene(updatedScene);

@@ -9,6 +9,7 @@ import {
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
 } from "@/lib/projects";
+import { deleteAssetCandidate } from "@/modules/assets/repository";
 import { deleteCaptionTrack } from "@/modules/captions/repository";
 import { deleteNarrationTrack } from "@/modules/narration/repository";
 import { deleteScene } from "@/modules/scenes/repository";
@@ -81,12 +82,17 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
       narrationTrackIds: project.workflow?.narrationTrackIds ?? [],
       captionTrackIds: project.workflow?.captionTrackIds ?? [],
       renderJobIds: project.workflow?.renderJobIds ?? [],
+      imagePlanApprovedAt: project.workflow?.imagePlanApprovedAt,
     },
   };
 }
 
 async function deleteScenePlanFiles(sceneIds: string[]): Promise<void> {
   await Promise.all(sceneIds.map((sceneId) => deleteScene(sceneId)));
+}
+
+async function deleteAssetCandidates(assetIds: string[]): Promise<void> {
+  await Promise.all(assetIds.map((assetId) => deleteAssetCandidate(assetId)));
 }
 
 async function deleteNarrationTracks(trackIds: string[]): Promise<void> {
@@ -99,6 +105,7 @@ async function deleteCaptionTracks(trackIds: string[]): Promise<void> {
 
 async function deleteDerivedArtifactsForProject(project: ProjectRecord): Promise<void> {
   await deleteScenePlanFiles(project.workflow.sceneIds);
+  await deleteAssetCandidates(project.workflow.assetIds);
   await deleteNarrationTracks(project.workflow.narrationTrackIds);
   await deleteCaptionTracks(project.workflow.captionTrackIds);
 }
@@ -110,6 +117,15 @@ function appendUniqueId(ids: string[], nextId: string): string[] {
 function replaceId(ids: string[], previousId: string, nextId: string): string[] {
   const remainingIds = ids.filter((id) => id !== previousId);
   return appendUniqueId(remainingIds, nextId);
+}
+
+function removeIds(ids: string[], removedIds: string[]): string[] {
+  if (removedIds.length === 0) {
+    return ids;
+  }
+
+  const removedIdSet = new Set(removedIds);
+  return ids.filter((id) => !removedIdSet.has(id));
 }
 
 export async function listProjects(): Promise<ProjectRecord[]> {
@@ -156,6 +172,7 @@ export async function saveStoryDraftForProject(
       approvalStatus: "pending",
       source: "generated",
       sceneOutline: generatedStory.sceneOutline,
+      llmMeta: generatedStory.llmMeta,
     };
 
     return {
@@ -288,8 +305,10 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
+        imagePlanApprovedAt: shouldClearScenePlan ? undefined : existing.workflow.imagePlanApprovedAt,
       },
     };
   });
@@ -329,8 +348,10 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       workflow: {
         ...existing.workflow,
         sceneIds: shouldClearScenePlan ? [] : existing.workflow.sceneIds,
+        assetIds: shouldClearScenePlan ? [] : existing.workflow.assetIds,
         narrationTrackIds: shouldClearScenePlan ? [] : existing.workflow.narrationTrackIds,
         captionTrackIds: shouldClearScenePlan ? [] : existing.workflow.captionTrackIds,
+        imagePlanApprovedAt: shouldClearScenePlan ? undefined : existing.workflow.imagePlanApprovedAt,
       },
     };
   });
@@ -354,8 +375,10 @@ export async function clearScenePlanForProject(
       workflow: {
         ...existing.workflow,
         sceneIds: [],
+        assetIds: [],
         narrationTrackIds: [],
         captionTrackIds: [],
+        imagePlanApprovedAt: undefined,
       },
     };
   });
@@ -374,6 +397,7 @@ export async function saveScenePlanForProject(projectId: string, sceneIds: strin
       workflow: {
         ...existing.workflow,
         sceneIds,
+        imagePlanApprovedAt: undefined,
       },
     };
   });
@@ -463,6 +487,75 @@ export async function saveCaptionTrackForProject(projectId: string, trackId: str
       workflow: {
         ...existing.workflow,
         captionTrackIds: appendUniqueId(existing.workflow.captionTrackIds, trackId),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function addAssetCandidateIdsToProject(projectId: string, assetIds: string[]): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        assetIds: assetIds.reduce((currentIds, assetId) => appendUniqueId(currentIds, assetId), existing.workflow.assetIds),
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function replaceAssetCandidateIdsForProject(
+  projectId: string,
+  previousAssetIds: string[],
+  nextAssetIds: string[],
+  nextStatus?: ProjectStatus,
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+    const remainingIds = removeIds(existing.workflow.assetIds, previousAssetIds);
+
+    return {
+      ...existing,
+      status: nextStatus ?? existing.status,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        assetIds: nextAssetIds.reduce((currentIds, assetId) => appendUniqueId(currentIds, assetId), remainingIds),
+        renderJobIds: [],
+        imagePlanApprovedAt: undefined,
+      },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function setProjectStatus(
+  projectId: string,
+  status: ProjectStatus,
+  options?: { clearRenderJobIds?: boolean; imagePlanApprovedAt?: string | null },
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      status,
+      updatedAt: new Date().toISOString(),
+      workflow: {
+        ...existing.workflow,
+        renderJobIds: options?.clearRenderJobIds ? [] : existing.workflow.renderJobIds,
+        imagePlanApprovedAt:
+          options && "imagePlanApprovedAt" in options
+            ? options.imagePlanApprovedAt ?? undefined
+            : existing.workflow.imagePlanApprovedAt,
       },
     };
   });

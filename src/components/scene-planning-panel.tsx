@@ -12,12 +12,11 @@ import {
   rejectSceneAction,
   updateSceneAction,
 } from "@/modules/scenes/actions";
-import type { ProjectStatus } from "@/types/project";
 import type { Scene, SceneEditableFields, SceneUpdateInput } from "@/types/scene";
 
 type ScenePlanningPanelProps = {
   projectId: string;
-  projectStatus: ProjectStatus;
+  isScenePlanApproved: boolean;
   hasApprovedScript: boolean;
   initialScenes: Scene[];
 };
@@ -94,7 +93,7 @@ function getDirtyFields(scene: Scene, values: SceneEditableFields): SceneUpdateI
 
 export function ScenePlanningPanel({
   projectId,
-  projectStatus,
+  isScenePlanApproved,
   hasApprovedScript,
   initialScenes,
 }: ScenePlanningPanelProps) {
@@ -121,7 +120,6 @@ export function ScenePlanningPanel({
     });
   }, [initialScenes]);
 
-  const isScenePlanApproved = projectStatus === "scene_ready";
   const totalRuntimeSeconds = useMemo(
     () => scenes.reduce((sum, scene) => sum + scene.durationTargetSeconds, 0),
     [scenes],

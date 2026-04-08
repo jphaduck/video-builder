@@ -7,6 +7,7 @@ export interface NarrationSceneAudio {
   sceneNumber: number;
   audioFilePath: string;
   durationSeconds: number;
+  measuredDurationSeconds: number;
   generatedAt: string;
 }
 

@@ -1,3 +1,4 @@
+import { measureMp3DurationSeconds } from "@/lib/mp3-duration";
 import { randomUUID } from "node:crypto";
 import type { ProjectRecord } from "@/types/project";
 import type { NarrationSceneAudio, NarrationTrack, GenerateNarrationTrackOptions, NarrationVoiceName } from "@/types/narration";
@@ -67,7 +68,7 @@ function ensureNarrationReadyProject(project: ProjectRecord): void {
     throw new Error("Narration requires an approved script draft.");
   }
 
-  if (project.status !== "scene_ready" || project.workflow.sceneIds.length === 0) {
+  if (project.workflow.sceneIds.length === 0) {
     throw new Error("Narration requires an approved scene plan.");
   }
 }
@@ -107,13 +108,14 @@ async function buildNarrationSceneAudios(
     });
     const buffer = Buffer.from(await response.arrayBuffer());
     const audioFilePath = await saveSceneAudioFile(trackId, scene.sceneNumber, buffer);
-    const wordCount = scene.scriptExcerpt.split(/\s+/).filter(Boolean).length;
+    const measuredDurationSeconds = measureMp3DurationSeconds(buffer);
 
     narrationSceneAudios.push({
       sceneId: scene.id,
       sceneNumber: scene.sceneNumber,
       audioFilePath,
-      durationSeconds: Number((wordCount / (speed * 2.5)).toFixed(2)),
+      durationSeconds: measuredDurationSeconds,
+      measuredDurationSeconds,
       generatedAt: new Date().toISOString(),
     });
   }
@@ -148,7 +150,9 @@ async function persistNarrationTrack(
     style: options.style?.trim() ? options.style.trim() : null,
     pronunciationOverrides: options.pronunciationOverrides,
     scenes: sceneAudios,
-    totalDurationSeconds: Number(sceneAudios.reduce((sum, scene) => sum + scene.durationSeconds, 0).toFixed(2)),
+    totalDurationSeconds: Number(
+      sceneAudios.reduce((sum, scene) => sum + scene.measuredDurationSeconds, 0).toFixed(2),
+    ),
     approvalStatus: "pending",
     source: previousTrackId ? "regenerated" : "generated",
     createdAt: now,

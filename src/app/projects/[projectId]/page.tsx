@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
+import { AssetPanel } from "@/components/asset-panel";
 import { CaptionPanel } from "@/components/caption-panel";
 import { NarrationPanel } from "@/components/narration-panel";
 import { ProjectShell } from "@/components/project-shell";
 import { ScenePlanningPanel } from "@/components/scene-planning-panel";
 import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
+import { getAssetCandidatesForProject } from "@/modules/assets/repository";
 import { markCaptionTrackStale } from "@/modules/captions/service";
 import { getCaptionTrack } from "@/modules/captions/repository";
 import { getNarrationTrack } from "@/modules/narration/repository";
@@ -13,6 +15,16 @@ import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
 import { generateStoryForProjectAction } from "@/modules/scripts/actions";
+import type { ProjectStatus } from "@/types/project";
+
+const SCENE_PLAN_APPROVED_STATUSES = new Set<ProjectStatus>([
+  "scene_ready",
+  "narration_pending",
+  "images_ready",
+  "voice_ready",
+  "timeline_ready",
+  "rendered",
+]);
 
 type ProjectPageProps = {
   params: Promise<{ projectId: string }>;
@@ -35,7 +47,13 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     null;
   const hasApprovedDraft = Boolean(project.approvedScriptDraftId);
   const scenes = await getScenesForProject(project.id);
-  const isScenePlanApproved = project.status === "scene_ready";
+  const assets = await getAssetCandidatesForProject(project.id);
+  const isScenePlanApproved =
+    SCENE_PLAN_APPROVED_STATUSES.has(project.status) &&
+    project.workflow.sceneIds.length > 0 &&
+    scenes.length === project.workflow.sceneIds.length &&
+    scenes.every((scene) => scene.approvalStatus === "approved");
+  const isImagePlanApproved = Boolean(project.workflow.imagePlanApprovedAt);
   const activeNarrationTrackId = project.workflow.narrationTrackIds.at(-1);
   const activeCaptionTrackId = project.workflow.captionTrackIds.at(-1);
   const narrationTrack = activeNarrationTrackId ? await getNarrationTrack(activeNarrationTrackId) : null;
@@ -199,9 +217,18 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
 
       <ScenePlanningPanel
         projectId={project.id}
-        projectStatus={project.status}
+        isScenePlanApproved={isScenePlanApproved}
         hasApprovedScript={hasApprovedDraft}
         initialScenes={scenes}
+      />
+
+      <AssetPanel
+        projectId={project.id}
+        projectStatus={project.status}
+        isScenePlanApproved={isScenePlanApproved}
+        isImagePlanApproved={isImagePlanApproved}
+        scenes={scenes}
+        initialAssets={assets}
       />
 
       <NarrationPanel

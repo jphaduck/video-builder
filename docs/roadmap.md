@@ -29,11 +29,12 @@ Status: complete
 - Add a scene approval gate before image generation
 
 ## Milestone 5: Voice and captions
-Status: upcoming
+Status: complete
 
 - Generate narration audio
 - Generate and edit captions
 - Add voice/caption review before final assembly
+- Export caption sidecars (`.srt` / `.vtt`)
 
 ## Milestone 6: Render pipeline
 Status: upcoming
@@ -41,3 +42,4 @@ Status: upcoming
 - Assemble slideshow video output
 - Use Remotion for final rendering
 - Export a YouTube-ready MP4 after human review gates are complete
+- Promote the current asset/timeline/rendering scaffolds into a full reviewable timeline and render workflow

@@ -11,6 +11,7 @@
 # misc
 .DS_Store
 *.pem
+scripts/eval-results/
 
 # debug
 npm-debug.log*
@@ -31,8 +32,16 @@ next-env.d.ts
 /data/projects/*.json
 /data/scenes/*.json
 /data/captions/*.json
+/data/captions/*.srt
+/data/captions/*.vtt
 /data/narration/**
+/data/assets/*.json
+/data/timeline/*.json
+/data/rendering/*.json
 !/data/projects/.gitkeep
 !/data/scenes/.gitkeep
 !/data/captions/.gitkeep
 !/data/narration/.gitkeep
+!/data/assets/.gitkeep
+!/data/timeline/.gitkeep
+!/data/rendering/.gitkeep

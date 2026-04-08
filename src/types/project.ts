@@ -16,6 +16,7 @@ export interface ProjectWorkflowRefs {
   narrationTrackIds: string[];
   captionTrackIds: string[];
   renderJobIds: string[];
+  imagePlanApprovedAt?: string;
 }
 
 export interface StoryInput {
@@ -30,6 +31,13 @@ export interface StorySceneOutlineItem {
   sceneNumber: number;
   heading: string;
   summary: string;
+}
+
+export interface LlmMeta {
+  promptId: string;
+  promptVersion: number;
+  model: string;
+  temperature: number;
 }
 
 export type ScriptDraftApprovalStatus = "pending" | "approved" | "rejected";
@@ -47,6 +55,7 @@ export interface StoryDraftRecord {
   source: StoryDraftSource;
   derivedFromDraftId?: string;
   sceneOutline: StorySceneOutlineItem[];
+  llmMeta?: LlmMeta;
 }
 
 export interface Project {

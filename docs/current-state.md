@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Phase 5 narration and captions is complete. Image generation and the final render/timeline pipeline are the next major milestones.
+Phase 6 still-image generation and asset approval is complete. Timeline assembly and final rendering are the next major milestones.
 
 What exists:
 - repo created
@@ -16,54 +16,71 @@ What exists:
 - script workflow for saved projects:
   - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
   - modular script service for story draft generation
-  - persisted script draft versions per project including:
-    - title options
-    - hook
-    - full narration draft
-    - scene-by-scene outline
-    - generation source metadata
+  - script generation now runs in two stages: a 12-20 beat structural outline first, then full narration from that outline
+  - beat outlines now fail clearly when the model returns no parseable numbered beats or fewer than 8 usable beats
+  - stage 2 user prompts explicitly require one paragraph per beat minimum and prevent skipping beats from the outline
+  - retry path now preserves the first failed draft, feeds it back as context, and asks the model to expand the middle and ending instead of regenerating a new draft from scratch
+  - the expansion retry now puts extra emphasis on bureaucratic and low-motion stories by treating paperwork, waiting, compliance pressure, isolation, and institutional language as real story beats instead of background exposition
+  - script generation now targets a minimum of 650 words and 8 paragraphs for 5-minute drafts, with higher runtime requests scaling by `Math.max(8, ceil(runtimeMinutes * 1.2))`
+  - stage 2 prompts now explicitly say the word target is a floor, not a stopping point, so drafts should keep expanding until the ending feels complete
+  - expected script-generation improvement target is roughly 650-900 words for 5-minute drafts instead of the earlier 420-510 word range seen in live evaluations
+  - script validation now enforces minimum word count, minimum paragraph count, title quality checks, second-person voice, and anti-echo protection before a draft is accepted
+  - story titles and hooks now explicitly push for story-specific distinctiveness and more concrete, less generic opening moments
+  - draft scene outlines now derive short, title-cased headings from each paragraph's first sentence and strip trailing orphaned prepositions/articles instead of using generic "Scene N" labels
+  - persisted script draft versions per project with prompt metadata (`promptId`, prompt version, model, temperature)
   - draft comparison and active-draft switching
   - manual script editing that saves as a new version
   - explicit approve/reject gate before scene planning unlocks
 - scene planning workflow for approved scripts:
   - persistent per-scene records stored in `data/scenes/{sceneId}.json`
-  - AI-generated scene plan with scene summaries, script excerpts, duration targets, visual intent, and image prompts
+  - AI-generated scene plan with duration targets, visual intent, image prompts, and per-scene prompt metadata
   - inline scene editing with per-scene save, regenerate, image-prompt regenerate, and full-plan regenerate actions
   - individual scene approve/reject controls
-  - full scene-plan approval gate before narration unlocks
-  - hardened scene-plan parsing that tolerates JSON code fences and partial scene objects with warnings/defaults instead of failing immediately
-  - scene-plan invalidation deletes scene files and clears downstream narration/caption references
+  - scene-plan invalidation deletes scene, asset, narration, and caption artifacts before clearing workflow references
+- still-image asset workflow for approved scene plans:
+  - persistent asset candidate metadata stored in `data/assets/{assetId}.json`
+  - generated image files stored on disk in `data/assets/{assetId}.png`
+  - OpenAI still-image generation from each approved scene's `imagePrompt`
+  - multiple image candidates per scene with single-selection review controls
+  - per-scene selected-image approve/reject controls and project-level image-plan approval
+  - image file route for browser thumbnails via `/api/assets/[assetId]`
+  - image plan reaches `images_ready` only when every approved scene has one selected and approved image
+  - regenerating or re-selecting images invalidates downstream timeline/render artifacts without touching scenes, narration, or captions
 - narration workflow for approved scene plans:
   - per-scene narration generation using OpenAI TTS (`tts-1-hd`)
   - one MP3 file per scene stored on disk in `data/narration/{trackId}/scene-{sceneNumber}.mp3`
   - narration track metadata stored in `data/narration/{trackId}/track.json`
+  - MP3 duration measurement stored as `measuredDurationSeconds` per scene and used for timeline/caption offset math
+  - hardened narration playback route with UUID/integer validation, async streaming, and 400/404 handling
   - review UI with voice selection, speed control, pronunciation overrides, per-scene audio playback, approve/reject, and full-track regeneration
-  - project status moves to `narration_pending` while a narration track is under review and to `voice_ready` once approved
 - captions workflow for approved narration tracks:
   - caption generation from narration audio via Whisper word timestamps
+  - caption chunking into readable segments with cumulative offsets based on measured narration durations
   - caption tracks stored in `data/captions/{captionTrackId}.json`
-  - caption chunking into readable segments with start/end timing
-  - inline caption text and timing edits that mark segments as edited
+  - SRT and VTT subtitle exports written to `data/captions/{captionTrackId}.srt` and `.vtt`
+  - inline caption text and timing edits that regenerate the export sidecars
   - stale-caption detection when the latest caption track no longer matches the latest narration track
+- next-stage scaffolding:
+  - file-backed timeline draft module in `src/modules/timeline`
+  - file-backed rendering job module in `src/modules/rendering`
 - foundational developer tooling:
-  - `.env.example` documents expected AI provider environment variables
-  - Vitest + Testing Library smoke and service tests
-  - GitHub Actions CI running lint, build, and tests on `main`
+  - `.env.example` documents current and future-facing AI provider variables
+  - MIT license committed
+  - Vitest smoke/service tests and GitHub Actions CI using `npm run validate`
 
 What does not exist yet:
-- database implementation
-- image generation and asset review implementation
-- final timeline composition
-- Remotion render pipeline implementation
+- final timeline editor UI
+- Remotion render/export implementation
 - background jobs/queueing
+- database-backed persistence
 
 Current priority:
-Implement image generation and asset review, then wire the approved assets plus approved narration/captions into the render pipeline.
+Promote approved scenes, selected still images, narration, and captions into a human-reviewable timeline draft and render job flow.
 
 Next 3 tasks:
-1. generate still-image candidates from approved scene prompts
-2. add per-scene image selection and approval before timeline assembly
-3. build the Remotion timeline/render stage from approved scenes, assets, narration, and captions
+1. build a timeline draft from approved scenes, selected still images, narration, and captions
+2. add timeline review/edit controls before final rendering
+3. build the Remotion render stage and persist render jobs/artifacts
 
 Files to read first next session:
 - AGENTS.md

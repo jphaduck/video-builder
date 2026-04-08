@@ -6,28 +6,32 @@ The app is designed to:
 - generate a title and hook
 - generate a full script for a 5 to 20 minute video
 - split the script into scenes
-- generate still images for each scene
+- generate still-image prompts and asset candidates for each scene
 - generate a voiceover
 - generate captions
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 4 scene planning is complete and the repo is ready for image generation and asset review work.
+Phase 5 narration and captions is complete. The repo is ready to move into image generation, asset review, and final timeline/render work.
 
-Completed foundation work:
+Completed work:
 - project persistence using per-project JSON files in `data/projects/`
 - project list route at `/projects`
 - project create and save flow at `/projects/new`
 - project detail loading at `/projects/[projectId]`
 - story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
-- scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, and scene-plan approval gating
-- Vitest smoke testing and GitHub Actions CI
+- scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, full-plan regeneration, and scene-plan approval gating
+- per-scene narration generation with OpenAI TTS and browser playback through `/api/narration/[trackId]/[sceneNumber]`
+- caption generation from approved narration audio with Whisper, plus inline caption text/timing edits and SRT/VTT export sidecars
+- asset candidate scaffolding on scene approval, plus timeline/rendering scaffolds for the next milestones
+- Vitest service/smoke testing and GitHub Actions CI using `npm run validate`
 
 Implemented routes:
 - `/` homepage
 - `/projects` project list page
 - `/projects/new` new project page
-- `/projects/[projectId]` project detail page with story generation, script draft versioning, manual editing, and workflow placeholders for later milestones
+- `/projects/[projectId]` project detail page with story generation, scene planning, narration, and caption review
+- `/api/narration/[trackId]/[sceneNumber]` audio playback route
 
 ## Run locally
 1. Install dependencies:
@@ -42,11 +46,15 @@ Implemented routes:
    ```bash
    npm run dev
    ```
-4. Validate the repo before pushing changes:
+4. Run tests:
+   ```bash
+   npm test
+   ```
+5. Validate the repo before pushing changes:
    ```bash
    npm run validate
    ```
-5. Open:
+6. Open:
    - http://localhost:3000/
    - http://localhost:3000/projects
    - create a project at http://localhost:3000/projects/new
@@ -54,5 +62,11 @@ Implemented routes:
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- Scene planning and image prompt planning are implemented, but actual image generation, assets, narration, captions, and rendering are still upcoming.
-- Project persistence is currently local/file-backed under `data/projects/{projectId}.json`, and scene persistence is currently local/file-backed under `data/scenes/{sceneId}.json`.
+- Actual image generation/render export are still upcoming, but the repo now persists scene prompts, narration tracks, caption tracks, asset candidates, and timeline/rendering scaffolds.
+- Project persistence is currently local/file-backed under `data/projects/{projectId}.json`.
+- Scene persistence is currently local/file-backed under `data/scenes/{sceneId}.json`.
+- Narration tracks are stored under `data/narration/{trackId}/`.
+- Caption tracks and subtitle exports are stored under `data/captions/`.
+
+## License
+MIT. See [LICENSE](/Users/jp/.codex/workspaces/default/repo/LICENSE).

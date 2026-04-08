@@ -13,12 +13,18 @@ function buildProjectSections(isScriptApproved: boolean, isScenePlanApproved: bo
       module: "scenes",
       title: "Scenes",
       description: isScenePlanApproved
-        ? "Scene plan approved. Image generation is the next locked stage."
+        ? "Scene plan approved. Still-image generation is unlocked for each approved scene."
         : isScriptApproved
           ? "Scene planning is unlocked for review, editing, regeneration, and approval."
           : "Scene planning is locked until you approve one script draft.",
     },
-    { module: "assets", title: "Assets", description: "Manage still-image prompts and selected visuals." },
+    {
+      module: "assets",
+      title: "Assets",
+      description: isScenePlanApproved
+        ? "Generate image candidates, choose one still per scene, and approve the image plan."
+        : "Still-image generation unlocks after the full scene plan is approved.",
+    },
     { module: "narration", title: "Narration", description: "Voiceover settings and narration regeneration controls." },
     { module: "captions", title: "Captions", description: "Caption review and timing edits." },
     { module: "rendering", title: "Render", description: "Assemble timeline and export final video." },

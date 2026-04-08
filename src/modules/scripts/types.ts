@@ -1,3 +1,5 @@
+import type { LlmMeta } from "@/types/project";
+
 export interface StoryGenerationInput {
   projectName: string;
   premise: string;
@@ -25,4 +27,5 @@ export interface GeneratedStoryDraft {
   narrationDraft: string;
   notes?: string;
   sceneOutline: GeneratedSceneOutlineItem[];
+  llmMeta: LlmMeta;
 }

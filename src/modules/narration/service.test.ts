@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getOpenAIClient } from "@/lib/ai";
+import { measureMp3DurationSeconds } from "@/lib/mp3-duration";
 import {
   approveNarrationTrackForProject,
   getProjectById,
@@ -28,6 +29,10 @@ vi.mock("@/lib/ai", () => ({
   getOpenAIClient: vi.fn(),
 }));
 
+vi.mock("@/lib/mp3-duration", () => ({
+  measureMp3DurationSeconds: vi.fn(),
+}));
+
 vi.mock("@/modules/projects/repository", () => ({
   approveNarrationTrackForProject: vi.fn(),
   getProjectById: vi.fn(),
@@ -52,6 +57,7 @@ vi.mock("@/modules/narration/repository", () => ({
 }));
 
 const mockedGetOpenAIClient = vi.mocked(getOpenAIClient);
+const mockedMeasureMp3DurationSeconds = vi.mocked(measureMp3DurationSeconds);
 const mockedApproveNarrationTrackForProject = vi.mocked(approveNarrationTrackForProject);
 const mockedGetProjectById = vi.mocked(getProjectById);
 const mockedReplaceNarrationTrackForProject = vi.mocked(replaceNarrationTrackForProject);
@@ -148,6 +154,7 @@ function createNarrationTrack(overrides: Partial<NarrationTrack> = {}): Narratio
         sceneNumber: 1,
         audioFilePath: "data/narration/track-1/scene-1.mp3",
         durationSeconds: 2,
+        measuredDurationSeconds: 2,
         generatedAt: "2026-04-06T00:00:00.000Z",
       },
     ],
@@ -187,6 +194,12 @@ beforeEach(() => {
       },
     },
   } as never);
+  mockedMeasureMp3DurationSeconds.mockReturnValue(2);
+  mockedGetProjectById.mockResolvedValue(createProject());
+  mockedGetScenesForProject.mockResolvedValue([
+    createScene({ id: "scene-1", approvalStatus: "approved" }),
+    createScene({ id: "scene-2", sceneNumber: 2, approvalStatus: "approved" }),
+  ]);
   mockedSaveSceneAudioFile.mockImplementation(async (trackId, sceneNumber) => `data/narration/${trackId}/scene-${sceneNumber}.mp3`);
   mockedSaveNarrationTrack.mockResolvedValue();
   mockedSaveNarrationTrackForProject.mockResolvedValue(createProject());
@@ -212,7 +225,19 @@ describe("generateNarrationTrack", () => {
   });
 
   it("throws if the scene plan is not approved", async () => {
-    mockedGetProjectById.mockResolvedValue(createProject({ status: "scene_planning" }));
+    mockedGetProjectById.mockResolvedValue(
+      createProject({
+        status: "scene_planning",
+        workflow: {
+          scriptDraftIds: ["draft-1"],
+          sceneIds: [],
+          assetIds: [],
+          narrationTrackIds: [],
+          captionTrackIds: [],
+          renderJobIds: [],
+        },
+      }),
+    );
 
     await expect(
       generateNarrationTrack("project-1", {
@@ -269,6 +294,8 @@ describe("generateNarrationTrack", () => {
     expect(mockedSaveSceneAudioFile).toHaveBeenCalledTimes(2);
     expect(mockedSaveNarrationTrack).toHaveBeenCalledWith(expect.objectContaining({ id: track.id, scenes: expect.any(Array) }));
     expect(mockedSaveNarrationTrackForProject).toHaveBeenCalledWith("project-1", track.id);
+    expect(mockedMeasureMp3DurationSeconds).toHaveBeenCalledTimes(2);
+    expect(track.scenes.every((scene) => scene.measuredDurationSeconds === 2)).toBe(true);
   });
 });
 

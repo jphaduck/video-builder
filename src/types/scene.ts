@@ -1,3 +1,5 @@
+import type { LlmMeta } from "@/types/project";
+
 export type SceneApprovalStatus = "pending" | "approved" | "rejected";
 export type SceneSource = "generated" | "manual_edit";
 
@@ -17,6 +19,7 @@ export interface Scene {
   source: SceneSource;
   createdAt: string;
   updatedAt: string;
+  llmMeta?: LlmMeta;
 }
 
 export type SceneEditableFields = Pick<

@@ -29,6 +29,10 @@ function getCaptionTrackFilePath(trackId: string): string {
   return path.join(CAPTIONS_DIR, `${trackId}.json`);
 }
 
+function getCaptionExportFilePath(trackId: string, extension: "srt" | "vtt"): string {
+  return path.join(CAPTIONS_DIR, `${trackId}.${extension}`);
+}
+
 function parseCaptionTrack(raw: string, filePath: string): CaptionTrack {
   try {
     return JSON.parse(raw) as CaptionTrack;
@@ -71,14 +75,28 @@ export async function deleteCaptionTrack(trackId: string): Promise<void> {
   await ensureCaptionsDirectory();
 
   await withCaptionWriteLock(async () => {
-    try {
-      await unlink(getCaptionTrackFilePath(trackId));
-    } catch (error) {
-      if (isErrnoException(error) && error.code === "ENOENT") {
-        return;
-      }
+    const filePaths = [getCaptionTrackFilePath(trackId), getCaptionExportFilePath(trackId, "srt"), getCaptionExportFilePath(trackId, "vtt")];
 
-      throw error;
+    for (const filePath of filePaths) {
+      try {
+        await unlink(filePath);
+      } catch (error) {
+        if (isErrnoException(error) && error.code === "ENOENT") {
+          continue;
+        }
+
+        throw error;
+      }
     }
+  });
+}
+
+export async function saveCaptionExport(trackId: string, extension: "srt" | "vtt", content: string): Promise<void> {
+  await ensureCaptionsDirectory();
+
+  await withCaptionWriteLock(async () => {
+    const tempFile = path.join(CAPTIONS_DIR, `${trackId}.${extension}.${randomUUID()}.tmp`);
+    await writeFile(tempFile, content, "utf8");
+    await rename(tempFile, getCaptionExportFilePath(trackId, extension));
   });
 }
