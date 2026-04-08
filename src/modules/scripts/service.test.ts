@@ -98,7 +98,7 @@ describe("generateStoryDraft", () => {
         expect.objectContaining({
           role: "user",
           content: expect.stringContaining(
-            "The minimum word count is a floor, not the finish line. Write until the story is fully told and the ending feels complete.",
+            "The minimum word count is a floor, not the finish line. Do not stop just because you crossed it.",
           ),
         }),
       ]),

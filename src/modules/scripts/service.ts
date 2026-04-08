@@ -283,7 +283,8 @@ Story development requirements:
 - Expand those beats into full narration with scene-level detail, transitions, and internal reasoning.
 - Do not compress multiple major beats into one paragraph.
 - Spend real time in the middle of the story, not just the setup and ending.
-- The minimum word count is a floor, not the finish line. Write until the story is fully told and the ending feels complete.
+- The minimum word count is a floor, not the finish line. Do not stop just because you crossed it.
+- Keep expanding until the middle feels developed and the ending feels emotionally complete.
 
 ${beatOutlineSection}
 `.trim();
@@ -310,7 +311,9 @@ Do not rewrite it from scratch. Instead:
 - Expand the ending by at least 2 paragraphs - let the final reflection breathe and land with emotional weight.
 - Do not restate what is already written. Add new content around and between existing beats.
 - Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
-- The word target is a floor, not a stopping point. Keep writing until the story feels complete and the ending fully lands.
+- The word target is a floor, not a stopping point. Do not stop near the minimum just because you crossed it.
+- Add enough new middle and ending material to move meaningfully past the floor when the story still feels lean.
+- Keep writing until the story feels complete and the ending fully lands.
 
 Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
 `.trim();

@@ -170,3 +170,8 @@
 - Decision: Use the live evaluation harness results to tighten story draft prompts around three observed weak spots: generic interchangeable titles, repetitive desk-bound hook openings, and retry under-expansion on quieter bureaucratic stories.
 - Why: The 50-run evaluation showed the pipeline was broadly stable, but quality dipped in exactly those areas while other suspected issues like outline count and network reliability were not primary problems.
 - Impact: Story prompts now demand story-specific title distinctiveness and more concrete opening moments, while the expansion retry spends more time on paperwork, waiting, institutional language, and lived consequences when the story’s tension is procedural rather than chase-driven.
+
+## 2026-04-08 - Second eval pass pushes titles, hooks, and expansion beyond minimum-floor behavior
+- Decision: Tighten story prompt wording so titles anchor to specific plot events, office-bound hooks open on a distinct trigger rather than a swappable workstation setup, and stage-2/retry prompts explicitly continue past the minimum floor when the story still feels lean.
+- Why: The latest 50-run eval showed three concrete weak spots: generic/swappable titles, repetitive desk-terminal-monitor openings, and too many drafts passing or failing right around the hard 650-word floor.
+- Impact: Title generations should become less interchangeable, hooks should vary more by story type, and stage-2 outputs should be pushed farther into the middle and ending instead of stopping as soon as they satisfy the minimum threshold.

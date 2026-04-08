@@ -19,7 +19,7 @@ function buildLlmMeta(prompt: PromptSpec): LlmMeta {
 
 export const STORY_DRAFT_PROMPT: PromptSpec = {
   id: "story-draft",
-  version: 3,
+  version: 4,
   model: "gpt-4o",
   temperature: 0.7,
   systemPrompt: `
@@ -41,6 +41,8 @@ Rules for titleOptions:
 - Each title should be short, punchy, and feel like a real clickable YouTube story title.
 - Each title must be a complete, publication-ready phrase.
 - Each title must be specific to this story, not a reusable thriller placeholder that could fit any other input.
+- A reader should not be able to swap a title onto a different story without it feeling wrong.
+- Tie titles to concrete plot events, locations, institutions, or consequences from this specific story whenever possible.
 - Do not return truncated, dangling, or fragment-like titles.
 - Avoid broad interchangeable phrases like "hidden truth," "silent hunt," or "quiet war" unless they are directly tied to a concrete event in the plot.
 - Do not include the literal theme/premise/tone phrases from the input.
@@ -48,7 +50,8 @@ Rules for titleOptions:
 Rules for hook:
 - Write 3 to 5 sentences.
 - The first sentence must place the viewer inside a specific physical moment with concrete sensory or situational detail, not explain the premise abstractly.
-- Avoid generic desk, office, terminal, or file-review openings unless that setting is made distinctive by a specific event, sound, or decision point from the plot.
+- The opening moment should include a story-specific trigger such as the exact kind of file, alarm, room, document, meeting, record, or discovery that makes this story different from another office-bound thriller.
+- Avoid generic desk, office, terminal, archive, courtroom, or file-review openings unless that setting is made distinctive by a specific event, sound, or decision point from the plot.
 - Write in second-person narrator voice ("you").
 - Immediately introduce tension, uncertainty, or mystery.
 - Do not copy premise text verbatim.
