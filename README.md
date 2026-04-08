@@ -12,7 +12,7 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 5 narration and captions is complete. The repo is ready to move into image generation, asset review, and final timeline/render work.
+Phase 6 still-image generation and asset approval is complete. The repo is now ready to move into timeline assembly and final rendering.
 
 Completed work:
 - project persistence using per-project JSON files in `data/projects/`
@@ -21,16 +21,19 @@ Completed work:
 - project detail loading at `/projects/[projectId]`
 - story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
 - scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, full-plan regeneration, and scene-plan approval gating
+- still-image generation and review for approved scenes, including multiple candidates per scene, thumbnail playback through `/api/assets/[assetId]`, single selection, per-scene approve/reject, and project-level image-plan approval
 - per-scene narration generation with OpenAI TTS and browser playback through `/api/narration/[trackId]/[sceneNumber]`
 - caption generation from approved narration audio with Whisper, plus inline caption text/timing edits and SRT/VTT export sidecars
-- asset candidate scaffolding on scene approval, plus timeline/rendering scaffolds for the next milestones
+- reusable live evaluation harness for real OpenAI script-generation benchmarking under `npm run eval:scripts`
+- timeline/rendering scaffolds for the next milestones
 - Vitest service/smoke testing and GitHub Actions CI using `npm run validate`
 
 Implemented routes:
 - `/` homepage
 - `/projects` project list page
 - `/projects/new` new project page
-- `/projects/[projectId]` project detail page with story generation, scene planning, narration, and caption review
+- `/projects/[projectId]` project detail page with story generation, scene planning, still-image review, narration, and caption review
+- `/api/assets/[assetId]` image file route
 - `/api/narration/[trackId]/[sceneNumber]` audio playback route
 
 ## Run locally
@@ -62,9 +65,10 @@ Implemented routes:
 
 ## Notes
 - This is a slideshow storytelling product, not a full animation product.
-- Actual image generation/render export are still upcoming, but the repo now persists scene prompts, narration tracks, caption tracks, asset candidates, and timeline/rendering scaffolds.
+- Image generation and review are now implemented; final timeline editing and render export are still upcoming.
 - Project persistence is currently local/file-backed under `data/projects/{projectId}.json`.
 - Scene persistence is currently local/file-backed under `data/scenes/{sceneId}.json`.
+- Asset candidates and generated still images are stored under `data/assets/`.
 - Narration tracks are stored under `data/narration/{trackId}/`.
 - Caption tracks and subtitle exports are stored under `data/captions/`.
 

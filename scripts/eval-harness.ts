@@ -61,6 +61,7 @@ interface EvalReport {
     avgParagraphCount: number;
     avgBeatCount: number;
     retryRate: number;
+    retrySuccessRate: number;
     passRate: number;
     byInput: Record<string, EvalSummaryEntry>;
   };
@@ -455,6 +456,7 @@ function buildSummary(results: EvalResult[]): EvalReport["summary"] {
   const passedResults = results.filter((result) => result.passed);
   const allBeatCounts = results.flatMap((result) => (result.beatCount === null ? [] : [result.beatCount]));
   const retryCount = results.filter((result) => result.retryTriggered).length;
+  const retrySuccessCount = results.filter((result) => result.retryTriggered && result.passed).length;
 
   const byInput = Object.fromEntries(
     BENCHMARK_INPUTS.map((input) => {
@@ -464,11 +466,12 @@ function buildSummary(results: EvalResult[]): EvalReport["summary"] {
       return [
         input.label,
         {
-          passRate: inputResults.length === 0 ? 0 : round(inputPassed.length / inputResults.length),
+          passRate: inputResults.length === 0 ? 0 : inputPassed.length / inputResults.length,
           avgWordCount: average(
             inputPassed.flatMap((result) => (result.wordCount === null ? [] : [result.wordCount])),
           ),
-          retryRate: inputResults.length === 0 ? 0 : round(inputResults.filter((result) => result.retryTriggered).length / inputResults.length),
+          retryRate:
+            inputResults.length === 0 ? 0 : inputResults.filter((result) => result.retryTriggered).length / inputResults.length,
         } satisfies EvalSummaryEntry,
       ];
     }),
@@ -480,8 +483,9 @@ function buildSummary(results: EvalResult[]): EvalReport["summary"] {
       passedResults.flatMap((result) => (result.paragraphCount === null ? [] : [result.paragraphCount])),
     ),
     avgBeatCount: average(allBeatCounts),
-    retryRate: round(results.length === 0 ? 0 : retryCount / results.length),
-    passRate: round(results.length === 0 ? 0 : passedResults.length / results.length),
+    retryRate: results.length === 0 ? 0 : retryCount / results.length,
+    retrySuccessRate: retryCount === 0 ? 0 : retrySuccessCount / retryCount,
+    passRate: results.length === 0 ? 0 : passedResults.length / results.length,
     byInput,
   };
 }
@@ -510,6 +514,7 @@ function printSummary(reportPath: string, report: EvalReport): void {
   console.log(`Overall pass rate: ${formatRate(report.summary.passRate)}`);
   console.log(`Overall average word count: ${report.summary.avgWordCount}`);
   console.log(`Retry rate: ${formatRate(report.summary.retryRate)}`);
+  console.log(`Retry success rate: ${formatRate(report.summary.retrySuccessRate)}`);
 
   console.log("");
   console.log("Per-input pass rate:");
