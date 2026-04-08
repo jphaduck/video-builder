@@ -43,7 +43,7 @@ function createInputBase() {
     theme: "Control versus autonomy inside invisible systems of power.",
     tone: "Controlled, analytical, and quietly oppressive.",
     plotNotes: "You discover the system, investigate it carefully, leak proof, and lose your old life.",
-    targetRuntimeMin: 5 as const,
+    targetRuntimeMin: 5,
   };
 }
 
