@@ -12,12 +12,12 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Phase 6 still-image generation and asset approval is complete. The repo is now ready to move into timeline assembly and final rendering.
+Milestones 1 through 5 are complete: project persistence, story engine, script review/approval, scene/image planning, and voice/captions. The repo is now ready to move into timeline assembly and final rendering.
 
 Completed work:
 - project persistence using per-project JSON files in `data/projects/`
 - project list route at `/projects`
-- project create and save flow at `/projects/new`
+- project create and save flow at `/projects/new`, plus project deletion from `/projects`
 - project detail loading at `/projects/[projectId]`
 - story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
 - scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, full-plan regeneration, and scene-plan approval gating

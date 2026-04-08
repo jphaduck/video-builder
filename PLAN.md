@@ -1,7 +1,13 @@
 # PLAN.md
 
+Current milestone:
+Milestone 6 — timeline assembly and final rendering
+
 ## Milestone 1: Project persistence
 Status: complete
+
+Note:
+- Projects can now be created, loaded, listed, and deleted from persistent local storage.
 
 Goal:
 Allow users to create, save, load, and list projects.
@@ -57,7 +63,11 @@ Validation:
 - manually create, edit, reject, and approve drafts for one test project
 
 ## Milestone 4: Scene and image planning
-Status: next
+Status: complete
+
+Note:
+- Implemented through `src/modules/scenes/` plus the still-image review flow in `src/modules/assets/`.
+- Scene records are persisted separately from the project record and referenced through `project.workflow.sceneIds`.
 
 Goal:
 Turn the approved script into editable scenes and scene image prompts.
@@ -73,6 +83,8 @@ Validation:
 - npm run build
 
 ## Milestone 5: Voice and captions
+Status: complete
+
 Goal:
 Generate narration and timed captions.
 
@@ -87,6 +99,8 @@ Validation:
 - npm run build
 
 ## Milestone 6: Render pipeline
+Status: next
+
 Goal:
 Render a slideshow-style MP4 with still images, motion, subtitles, and narration.
 

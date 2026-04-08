@@ -5,6 +5,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import {
   createProject as createStoredProject,
+  deleteProject as deleteStoredProject,
   getProject as getStoredProject,
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
@@ -12,8 +13,10 @@ import {
 import { deleteAssetCandidate } from "@/modules/assets/repository";
 import { deleteCaptionTrack } from "@/modules/captions/repository";
 import { deleteNarrationTrack } from "@/modules/narration/repository";
+import { deleteRenderJob, listRenderJobs } from "@/modules/rendering/repository";
 import { deleteScene } from "@/modules/scenes/repository";
 import { buildSceneOutline } from "@/modules/scripts/draft-utils";
+import { deleteTimelineDraft } from "@/modules/timeline/repository";
 import type {
   CreateProjectInput,
   ProjectRecord,
@@ -141,6 +144,21 @@ export async function getProjectById(projectId: string): Promise<ProjectRecord |
 export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
   const project = await createStoredProject(input);
   return normalizeProject(project);
+}
+
+export async function deleteProjectById(projectId: string): Promise<void> {
+  const project = await getProjectById(projectId);
+  if (!project) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  await deleteDerivedArtifactsForProject(project);
+  await deleteTimelineDraft(project.id);
+
+  const renderJobs = await listRenderJobs(project.id);
+  await Promise.all(renderJobs.map((job) => deleteRenderJob(job.id)));
+
+  await deleteStoredProject(project.id);
 }
 
 type SaveStoryInput = {

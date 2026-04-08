@@ -201,3 +201,19 @@ export async function updateProject(projectId: string, updater: (project: Projec
     return updatedProject;
   });
 }
+
+export async function deleteProject(projectId: string): Promise<void> {
+  await ensureProjectsDirectory();
+
+  await withProjectWriteLock(async () => {
+    try {
+      await unlink(getProjectFilePath(projectId));
+    } catch (error) {
+      if (isErrnoException(error) && error.code === "ENOENT") {
+        throw new Error(`Project not found: ${projectId}`);
+      }
+
+      throw error;
+    }
+  });
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { ProjectDeleteButton } from "@/components/project-delete-button";
 import { listProjects } from "@/modules/projects/repository";
 
 export default async function ProjectsListPage() {
@@ -27,7 +28,12 @@ export default async function ProjectsListPage() {
               <p className="subtitle" style={{ marginBottom: 8 }}>
                 Updated: {new Date(project.updatedAt).toLocaleString()}
               </p>
-              <Link href={`/projects/${project.id}`}>Open project</Link>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Link href={`/projects/${project.id}`} className="card">
+                  Open project
+                </Link>
+                <ProjectDeleteButton projectId={project.id} projectName={project.name} />
+              </div>
             </article>
           ))
         )}

@@ -13,6 +13,7 @@ What exists:
   - create project from `/projects/new`
   - list saved projects at `/projects`
   - load project detail at `/projects/[projectId]`
+  - delete a project from `/projects`, including cleanup of its persisted derived artifacts
 - script workflow for saved projects:
   - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
   - modular script service for story draft generation
@@ -76,7 +77,7 @@ What does not exist yet:
 - database-backed persistence
 
 Current priority:
-Promote approved scenes, selected still images, narration, and captions into a human-reviewable timeline draft and render job flow.
+Promote approved scenes, selected still images, narration, and captions into a human-reviewable timeline draft and final render flow.
 
 Next 3 tasks:
 1. build a timeline draft from approved scenes, selected still images, narration, and captions
