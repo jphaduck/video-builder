@@ -41,8 +41,9 @@ What exists:
 - still-image asset workflow for approved scene plans:
   - persistent asset candidate metadata stored in `data/assets/{assetId}.json`
   - generated image files stored on disk in `data/assets/{assetId}.png`
-  - OpenAI still-image generation from each approved scene's `imagePrompt`
-  - multiple image candidates per scene with single-selection review controls
+  - OpenAI DALL-E 3 still-image generation from each approved scene's `imagePrompt`, prefixed for cinematic no-text / no-face framing
+  - image downloads are saved locally on disk instead of relying on expiring provider CDN URLs
+  - 2 locally persisted image candidates per scene with single-selection review controls
   - per-scene selected-image approve/reject controls and project-level image-plan approval
   - image file route for browser thumbnails via `/api/assets/[assetId]`
   - image plan reaches `images_ready` only when every approved scene has one selected and approved image

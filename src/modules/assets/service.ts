@@ -20,8 +20,8 @@ import { deleteTimelineDraft } from "@/modules/timeline/repository";
 import type { ProjectRecord, ProjectStatus } from "@/types/project";
 import type { Scene } from "@/types/scene";
 
-const DEFAULT_CANDIDATE_COUNT = 3;
-const MAX_CANDIDATE_COUNT = 4;
+const DEFAULT_CANDIDATE_COUNT = 2;
+const MAX_CANDIDATE_COUNT = 2;
 const SCENE_PLAN_APPROVED_STATUSES = new Set<ProjectStatus>([
   "scene_ready",
   "narration_pending",
@@ -127,22 +127,64 @@ async function getApprovedSceneContext(projectId: string, sceneId: string): Prom
   return { project, scene, scenes };
 }
 
-function extractImageBuffers(response: {
-  data?: Array<{ b64_json?: string | null }>;
-}): Buffer[] {
-  const images = response.data ?? [];
+function buildAssetGenerationPrompt(scene: Scene): string {
+  return `Cinematic still image, no text, no faces visible: ${scene.imagePrompt}`.trim();
+}
 
-  if (images.length === 0) {
+async function downloadImageBuffer(imageUrl: string): Promise<Buffer> {
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error(`OpenAI image download failed with status ${response.status}.`);
+  }
+
+  const imageArrayBuffer = await response.arrayBuffer();
+  return Buffer.from(imageArrayBuffer);
+}
+
+async function extractImageBuffer(
+  response: {
+    data?: Array<{ b64_json?: string | null; url?: string | null }>;
+  },
+  index: number,
+): Promise<Buffer> {
+  const image = response.data?.[0];
+
+  if (!image) {
     throw new Error("OpenAI did not return any image candidates.");
   }
 
-  return images.map((image, index) => {
-    if (typeof image.b64_json !== "string" || image.b64_json.trim() === "") {
-      throw new Error(`OpenAI returned image candidate ${index + 1} without image data.`);
-    }
-
+  if (typeof image.b64_json === "string" && image.b64_json.trim() !== "") {
     return Buffer.from(image.b64_json, "base64");
-  });
+  }
+
+  if (typeof image.url === "string" && image.url.trim() !== "") {
+    return downloadImageBuffer(image.url);
+  }
+
+  throw new Error(`OpenAI returned image candidate ${index + 1} without downloadable image data.`);
+}
+
+async function generateImageBuffers(
+  scene: Scene,
+  candidateCount: number,
+): Promise<Buffer[]> {
+  const openai = getOpenAIClient();
+  const prompt = buildAssetGenerationPrompt(scene);
+
+  return Promise.all(
+    Array.from({ length: candidateCount }, async (_, index) => {
+      const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1792x1024",
+        quality: "standard",
+      });
+
+      return extractImageBuffer(response, index);
+    }),
+  );
 }
 
 async function persistGeneratedCandidates(
@@ -254,18 +296,7 @@ export async function generateSceneImages(
   const { project, scene } = await getApprovedSceneContext(projectId, sceneId);
   const existingCandidates = await getAssetCandidatesForScene(project.id, scene.id);
   const candidateCount = clampCandidateCount(options.numCandidates);
-  const openai = getOpenAIClient();
-
-  const response = await openai.images.generate({
-    model: "gpt-image-1",
-    prompt: scene.imagePrompt,
-    n: candidateCount,
-    size: "1024x1024",
-    quality: "medium",
-    output_format: "png",
-  });
-
-  const imageBuffers = extractImageBuffers(response);
+  const imageBuffers = await generateImageBuffers(scene, candidateCount);
   const nextCandidates = await persistGeneratedCandidates(scene, imageBuffers);
   const nextProjectStatus = existingCandidates.length > 0 ? getFallbackProjectStatus(project) : project.status;
 

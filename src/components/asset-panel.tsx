@@ -144,7 +144,7 @@ export function AssetPanel({
     }
 
     await runAction(`generate-${scene.id}`, async () => {
-      const result = await generateSceneImagesAction(projectId, scene.id, { numCandidates: 3 });
+      const result = await generateSceneImagesAction(projectId, scene.id, { numCandidates: 2 });
       if (!result.ok) {
         setErrorMessage(result.error);
         return;
@@ -174,7 +174,7 @@ export function AssetPanel({
       let nextAssetsByScene = assetsByScene;
 
       for (const scene of approvedScenes) {
-        const result = await generateSceneImagesAction(projectId, scene.id, { numCandidates: 3 });
+        const result = await generateSceneImagesAction(projectId, scene.id, { numCandidates: 2 });
         if (!result.ok) {
           setAssetsByScene(nextAssetsByScene);
           setErrorMessage(`Scene ${scene.sceneNumber}: ${result.error}`);
@@ -340,7 +340,7 @@ export function AssetPanel({
                           disabled={isBusy || isImagePlanApproved}
                           style={{ cursor: isBusy ? "wait" : "pointer", width: 220 }}
                         >
-                          {pendingAction === `generate-${scene.id}` ? "Generating Images..." : "Generate 3 Images"}
+                          {pendingAction === `generate-${scene.id}` ? "Generating Images..." : "Generate 2 Images"}
                         </button>
                       ) : (
                         <>

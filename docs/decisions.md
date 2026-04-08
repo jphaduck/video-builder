@@ -185,3 +185,8 @@
 - Decision: Implement the first real render/export milestone with a local FFmpeg slideshow pipeline that merges narration audio, burns SRT captions into the video, and writes a final MP4 to `data/renders/`, while using Sharp-generated placeholder stills when no approved scene image is available.
 - Why: The rendering scaffold already had local file-backed timeline and render-job storage, so FFmpeg was the smallest path to a real playable export without introducing a larger composition framework first.
 - Impact: Render jobs now track `rendering` / `complete` / `error` state, the UI can poll and stream finished MP4s, and missing scene images no longer block final rendering outright.
+
+## 2026-04-08 - Asset generation uses DALL-E 3 with local file persistence
+- Decision: Generate still-image candidates through `dall-e-3` at `1792x1024`, download each returned image URL immediately, and persist the image file locally under `data/assets/`.
+- Why: The asset workflow already had real candidate review and approval state, but relying on expiring provider URLs would make saved image candidates brittle for later review and rendering.
+- Impact: Scene image generation now produces two local candidates per scene, keeps the existing approval flow unchanged, and stores durable file paths rather than temporary CDN references.

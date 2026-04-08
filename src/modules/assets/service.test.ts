@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getOpenAIClient } from "@/lib/ai";
 import {
   deleteAssetCandidate,
@@ -23,6 +23,8 @@ import { deleteTimelineDraft } from "@/modules/timeline/repository";
 import type { AssetCandidate } from "@/modules/assets/types";
 import type { ProjectRecord, StoryDraftRecord } from "@/types/project";
 import type { Scene } from "@/types/scene";
+
+const originalFetch = global.fetch;
 
 vi.mock("@/lib/ai", () => ({
   getOpenAIClient: vi.fn(),
@@ -69,6 +71,7 @@ const mockedSetProjectStatus = vi.mocked(setProjectStatus);
 const mockedGetScene = vi.mocked(getScene);
 const mockedGetScenesForProject = vi.mocked(getScenesForProject);
 const mockedDeleteTimelineDraft = vi.mocked(deleteTimelineDraft);
+let mockedImageGenerate: ReturnType<typeof vi.fn>;
 
 function createDraft(overrides: Partial<StoryDraftRecord> = {}): StoryDraftRecord {
   return {
@@ -159,16 +162,18 @@ function createAssetCandidate(overrides: Partial<AssetCandidate> = {}): AssetCan
 beforeEach(() => {
   vi.clearAllMocks();
 
+  mockedImageGenerate = vi.fn().mockResolvedValue({
+    data: [{ url: "https://example.com/generated-image.png" }],
+  });
   mockedGetOpenAIClient.mockReturnValue({
     images: {
-      generate: vi.fn().mockResolvedValue({
-        data: [
-          { b64_json: Buffer.from("image-one").toString("base64") },
-          { b64_json: Buffer.from("image-two").toString("base64") },
-        ],
-      }),
+      generate: mockedImageGenerate,
     },
   } as never);
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    arrayBuffer: async () => Uint8Array.from(Buffer.from("image-file")).buffer,
+  } as Response);
   mockedGetProjectById.mockResolvedValue(createProject());
   mockedGetScene.mockResolvedValue(createScene());
   mockedGetScenesForProject.mockResolvedValue([
@@ -186,6 +191,10 @@ beforeEach(() => {
   mockedDeleteAssetCandidate.mockResolvedValue();
   mockedDeleteTimelineDraft.mockResolvedValue();
   mockedDeleteRenderJob.mockResolvedValue();
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
 });
 
 describe("generateSceneImages", () => {
@@ -224,6 +233,18 @@ describe("generateSceneImages", () => {
     const candidates = await generateSceneImages("project-1", "scene-1", { numCandidates: 2 });
 
     expect(candidates).toHaveLength(2);
+    expect(mockedImageGenerate).toHaveBeenCalledTimes(2);
+    expect(mockedImageGenerate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        model: "dall-e-3",
+        n: 1,
+        size: "1792x1024",
+        quality: "standard",
+        prompt: expect.stringContaining("Cinematic still image, no text, no faces visible:"),
+      }),
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(candidates[0]).toMatchObject({
       projectId: "project-1",
       sceneId: "scene-1",
