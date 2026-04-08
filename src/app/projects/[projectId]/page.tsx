@@ -7,6 +7,7 @@ import { ProjectShell } from "@/components/project-shell";
 import { ScenePlanningPanel } from "@/components/scene-planning-panel";
 import { ScriptDraftEditor } from "@/components/script-draft-editor";
 import { ScriptDraftHistory } from "@/components/script-draft-history";
+import { TimelinePanel } from "@/components/timeline-panel";
 import { getAssetCandidatesForProject } from "@/modules/assets/repository";
 import { markCaptionTrackStale } from "@/modules/captions/service";
 import { getCaptionTrack } from "@/modules/captions/repository";
@@ -15,6 +16,7 @@ import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
 import { generateStoryForProjectAction } from "@/modules/scripts/actions";
+import { getTimelineDraftForProject } from "@/modules/timeline/service";
 import type { ProjectStatus } from "@/types/project";
 
 const SCENE_PLAN_APPROVED_STATUSES = new Set<ProjectStatus>([
@@ -58,6 +60,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const activeCaptionTrackId = project.workflow.captionTrackIds.at(-1);
   const narrationTrack = activeNarrationTrackId ? await getNarrationTrack(activeNarrationTrackId) : null;
   let captionTrack = activeCaptionTrackId ? await getCaptionTrack(activeCaptionTrackId) : null;
+  const timelineDraft = await getTimelineDraftForProject(project.id);
 
   if (
     captionTrack &&
@@ -71,6 +74,9 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
       isStale: true,
     };
   }
+
+  const canBuildTimeline =
+    narrationTrack?.approvalStatus === "approved" && Boolean(captionTrack) && captionTrack?.isStale === false;
 
   return (
     <main className="container">
@@ -246,7 +252,17 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         initialCaptionTrack={captionTrack}
       />
 
-      <ProjectShell isScriptApproved={hasApprovedDraft} isScenePlanApproved={isScenePlanApproved} />
+      <TimelinePanel
+        project={project}
+        initialTimelineDraft={timelineDraft}
+        canBuildTimeline={canBuildTimeline}
+      />
+
+      <ProjectShell
+        isScriptApproved={hasApprovedDraft}
+        isScenePlanApproved={isScenePlanApproved}
+        isTimelineReady={project.status === "timeline_ready" || project.status === "rendered"}
+      />
     </main>
   );
 }

@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Phase 6 still-image generation and asset approval is complete. Timeline assembly and final rendering are the next major milestones.
+Timeline draft assembly and read-only review are now wired. Final rendering/export is the next major milestone.
 
 What exists:
 - repo created
@@ -61,8 +61,14 @@ What exists:
   - SRT and VTT subtitle exports written to `data/captions/{captionTrackId}.srt` and `.vtt`
   - inline caption text and timing edits that regenerate the export sidecars
   - stale-caption detection when the latest caption track no longer matches the latest narration track
+- timeline workflow:
+  - file-backed timeline drafts stored in `data/timeline/{projectId}.json`
+  - timeline assembly from the latest saved scenes, still-image assets, approved narration track, and current caption track
+  - timeline build/rebuild action plus `GET` / `POST` route at `/api/projects/[projectId]/timeline`
+  - read-only timeline review panel on the project detail page with scene heading, thumbnail/placeholder, narration duration, caption preview, and cumulative start offset
+  - timeline build is gated on approved narration plus a current non-stale caption track
+  - building a timeline draft moves the project to `timeline_ready`
 - next-stage scaffolding:
-  - file-backed timeline draft module in `src/modules/timeline`
   - file-backed rendering job module in `src/modules/rendering`
 - foundational developer tooling:
   - `.env.example` documents current and future-facing AI provider variables
@@ -71,18 +77,18 @@ What exists:
   - reusable live script evaluation harness under `npm run eval:scripts`, with JSON reports that now calculate `passRate` from passed rows in `results`, `retryRate` from retry-triggered rows, and `retrySuccessRate` from successful retries
 
 What does not exist yet:
-- final timeline editor UI
+- editable timeline controls
 - Remotion render/export implementation
 - background jobs/queueing
 - database-backed persistence
 
 Current priority:
-Promote approved scenes, selected still images, narration, and captions into a human-reviewable timeline draft and final render flow.
+Promote the new timeline review stage into a real render/export flow.
 
 Next 3 tasks:
-1. build a timeline draft from approved scenes, selected still images, narration, and captions
-2. add timeline review/edit controls before final rendering
-3. build the Remotion render stage and persist render jobs/artifacts
+1. build the render/export stage on top of the saved timeline draft
+2. add timeline editing controls before final rendering
+3. persist render jobs and final video artifacts end to end
 
 Files to read first next session:
 - AGENTS.md

@@ -175,3 +175,8 @@
 - Decision: Tighten story prompt wording so titles anchor to specific plot events, office-bound hooks open on a distinct trigger rather than a swappable workstation setup, and stage-2/retry prompts explicitly continue past the minimum floor when the story still feels lean.
 - Why: The latest 50-run eval showed three concrete weak spots: generic/swappable titles, repetitive desk-terminal-monitor openings, and too many drafts passing or failing right around the hard 650-word floor.
 - Impact: Title generations should become less interchangeable, hooks should vary more by story type, and stage-2 outputs should be pushed farther into the middle and ending instead of stopping as soon as they satisfy the minimum threshold.
+
+## 2026-04-08 - Timeline review unlocks from approved narration plus current captions
+- Decision: Treat timeline assembly as available when the latest narration track is approved and the latest caption track exists and is not stale, then mark the project `timeline_ready` once the draft is built.
+- Why: The codebase does not have a separate caption approval model today, so the safest real gating signal is a current caption track paired to the approved narration.
+- Impact: The timeline review UI can ship without inventing a parallel caption-approval state, and rebuilds can invalidate any future render jobs by returning the project to the timeline-ready stage.
