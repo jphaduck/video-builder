@@ -37,9 +37,9 @@ Status: complete
 - Export caption sidecars (`.srt` / `.vtt`)
 
 ## Milestone 6: Render pipeline
-Status: upcoming
+Status: complete
 
-- Assemble slideshow video output
-- Use Remotion for final rendering
-- Export a YouTube-ready MP4 after human review gates are complete
-- Promote the current asset/timeline/rendering scaffolds into a full reviewable timeline and render workflow
+- Assemble slideshow video output from the approved timeline draft
+- Use the shipped FFmpeg renderer for 1920x1080, 30fps MP4 export
+- Merge narration audio and burn captions into the final video
+- Persist render jobs locally and stream live progress updates to the review UI

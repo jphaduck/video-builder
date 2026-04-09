@@ -10,7 +10,7 @@ Story Video Studio is a Next.js App Router application with TypeScript.
 - Shared types: `src/types/*`
 
 The product is organized around a staged workflow:
-project -> script -> scenes -> assets -> narration -> captions -> render
+project -> script -> scenes -> assets -> narration -> captions -> timeline -> render
 
 ## Current implementation
 - Next.js App Router renders the product pages and forms
@@ -18,6 +18,8 @@ project -> script -> scenes -> assets -> narration -> captions -> render
 - Early milestone persistence uses local JSON files in `data/projects/{projectId}.json`
 - The low-level persistence boundary lives in `src/lib/projects.ts`
 - Feature-specific orchestration sits in module folders such as `src/modules/projects` and `src/modules/scripts`
+- Timeline drafts, caption sidecars, narration tracks, render jobs, and final MP4 exports are also stored locally under `data/`
+- Rendering runs through dedicated route handlers plus `src/modules/rendering`, with async job state persisted to disk and streamed to the UI over SSE
 
 ## Intended server architecture
 For generation-heavy features, the canonical server boundary is:
@@ -38,7 +40,12 @@ This keeps the storage dependency-free while preserving a clear replacement seam
 - `Project`
 - `StoryInput`
 - `StoryDraft`
-- later milestones: `ScenePlan`, `SceneImage`, `VoiceTrack`, `CaptionTrack`, `TimelineDraft`, `RenderJob`
+- `Scene`
+- `AssetCandidate`
+- `NarrationTrack`
+- `CaptionTrack`
+- `TimelineDraft`
+- `RenderJob`
 
 ## Workflow rules
 The product should enforce human review before moving through major stages:
@@ -50,14 +57,17 @@ The product should enforce human review before moving through major stages:
 
 No final render should happen without a human-approved timeline.
 
-## Planned render architecture
-The render pipeline is not implemented yet.
+## Current render architecture
+The render pipeline is implemented today as a local FFmpeg-based slideshow renderer.
 
-When the render milestone is reached later in the roadmap, the intended renderer is:
-- Remotion
-- 1920x1080
-- 30fps
-- slideshow-style video composition with still images, motion, captions, narration, and optional audio beds
+Current render behavior:
+- assembles timeline scene stills into a 1920x1080, 30fps MP4 export
+- concatenates approved narration audio into one soundtrack
+- burns generated SRT captions directly into the final video
+- falls back to generated placeholder stills when a scene does not have an approved image
+- persists render job metadata and temporary artifacts under `data/rendering/`
+- writes final project exports to `data/renders/{projectId}.mp4`
+- exposes async start/status routes plus an SSE progress stream for the review UI
 
 ## Design constraints
 - Slideshow-style storytelling only, not full animation
