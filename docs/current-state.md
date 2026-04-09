@@ -88,7 +88,7 @@ What exists:
   - render start now honors the standardized `{ data }` API envelope, and the render panel surfaces explicit start/progress stream failures instead of silently treating successful starts as errors or stalling on disconnects
 - API route hardening:
   - JSON API routes now consistently return `{ data: ... }` on success and `{ error: string }` on failure
-  - project-scoped routes validate non-empty `projectId` params before doing work and return `400` / `404` / generic `500` responses instead of leaking internal failures
+  - project-scoped routes now require UUID-format `projectId` params before doing work, closing traversal into other `data/*.json` files while still returning clean `400` / `404` / generic `500` responses
   - stream and SSE routes keep binary/event-stream success responses but now return clean JSON error payloads when validation or repository lookups fail
 - foundational developer tooling:
   - `.env.example` documents current and future-facing AI provider variables

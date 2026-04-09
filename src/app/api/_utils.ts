@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 export const INTERNAL_SERVER_ERROR_MESSAGE = "Internal server error.";
 export const PROJECT_NOT_FOUND_ERROR = "Project not found.";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function getRequiredParam(
   value: string | undefined | null,
@@ -16,6 +18,26 @@ export function getRequiredParam(
   }
 
   return { value: trimmed, response: null };
+}
+
+export function getRequiredUuidParam(
+  value: string | undefined | null,
+  label: string,
+  invalidMessage: string,
+): { value: string | null; response: NextResponse<{ error: string }> | null } {
+  const required = getRequiredParam(value, label);
+  if (required.response || !required.value) {
+    return required;
+  }
+
+  if (!UUID_PATTERN.test(required.value)) {
+    return {
+      value: null,
+      response: NextResponse.json({ error: invalidMessage }, { status: 400 }),
+    };
+  }
+
+  return required;
 }
 
 export function jsonData<T>(data: T, init?: ResponseInit): NextResponse<{ data: T }> {

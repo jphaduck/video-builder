@@ -5,6 +5,8 @@ const mockedGetProjectById = vi.fn();
 const mockedGetLatestRenderJobForProject = vi.fn();
 const mockedStat = vi.fn();
 const mockedCreateReadStream = vi.fn();
+const validProjectId = "11111111-1111-4111-8111-111111111111";
+const missingProjectId = "22222222-2222-4222-8222-222222222222";
 
 vi.mock("@/modules/projects/repository", () => ({
   getProjectById: (...args: unknown[]) => mockedGetProjectById(...args),
@@ -31,10 +33,10 @@ vi.mock("node:fs/promises", () => ({
 describe("GET /api/projects/[projectId]/render/stream", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGetProjectById.mockResolvedValue({ id: "project-123" });
+    mockedGetProjectById.mockResolvedValue({ id: validProjectId });
     mockedGetLatestRenderJobForProject.mockResolvedValue({
       id: "render-1",
-      outputFilePath: "data/renders/project-123.mp4",
+      outputFilePath: `data/renders/${validProjectId}.mp4`,
     });
     mockedStat.mockResolvedValue({ size: 123 });
     mockedCreateReadStream.mockReturnValue(Readable.from(["video"]));
@@ -43,12 +45,12 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
   it("streams the rendered video when present", async () => {
     const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("video/mp4");
-    expect(response.headers.get("Content-Disposition")).toContain("project-123.mp4");
+    expect(response.headers.get("Content-Disposition")).toContain(`${validProjectId}.mp4`);
   });
 
   it("returns 400 when projectId is missing", async () => {
@@ -61,12 +63,24 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
     await expect(response.json()).resolves.toEqual({ error: "Project ID is required." });
   });
 
+  it("returns 400 when projectId is not a UUID", async () => {
+    const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ projectId: "../captions/abc" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
+    expect(mockedGetLatestRenderJobForProject).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the project is missing", async () => {
     mockedGetProjectById.mockResolvedValue(null);
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "missing-project" }),
+      params: Promise.resolve({ projectId: missingProjectId }),
     });
 
     expect(response.status).toBe(404);
@@ -81,7 +95,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(400);
@@ -95,7 +109,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(500);

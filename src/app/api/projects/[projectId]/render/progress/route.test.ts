@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockedGetProjectById = vi.fn();
 const mockedGetLatestRenderJobForProject = vi.fn();
+const validProjectId = "11111111-1111-4111-8111-111111111111";
+const missingProjectId = "22222222-2222-4222-8222-222222222222";
 
 vi.mock("@/modules/projects/repository", () => ({
   getProjectById: (...args: unknown[]) => mockedGetProjectById(...args),
@@ -14,13 +16,13 @@ vi.mock("@/modules/rendering/repository", () => ({
 describe("GET /api/projects/[projectId]/render/progress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGetProjectById.mockResolvedValue({ id: "project-123" });
+    mockedGetProjectById.mockResolvedValue({ id: validProjectId });
     mockedGetLatestRenderJobForProject.mockResolvedValue({
       id: "render-1",
-      projectId: "project-123",
+      projectId: validProjectId,
       timelineDraftId: "timeline-1",
       status: "complete",
-      outputFilePath: "data/renders/project-123.mp4",
+      outputFilePath: `data/renders/${validProjectId}.mp4`,
       errorMessage: null,
       progressMessage: "Render complete.",
       createdAt: "2026-04-09T00:00:00.000Z",
@@ -31,7 +33,7 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
   it("streams progress events for a valid request", async () => {
     const { GET } = await import("@/app/api/projects/[projectId]/render/progress/route");
     const response = await GET(new Request("http://localhost/render/progress"), {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(200);
@@ -49,12 +51,24 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
     await expect(response.json()).resolves.toEqual({ error: "Project ID is required." });
   });
 
+  it("returns 400 when projectId is not a UUID", async () => {
+    const { GET } = await import("@/app/api/projects/[projectId]/render/progress/route");
+    const response = await GET(new Request("http://localhost/render/progress"), {
+      params: Promise.resolve({ projectId: "../captions/abc" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
+    expect(mockedGetLatestRenderJobForProject).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the project does not exist", async () => {
     mockedGetProjectById.mockResolvedValue(null);
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/progress/route");
     const response = await GET(new Request("http://localhost/render/progress"), {
-      params: Promise.resolve({ projectId: "missing-project" }),
+      params: Promise.resolve({ projectId: missingProjectId }),
     });
 
     expect(response.status).toBe(404);
@@ -66,7 +80,7 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/progress/route");
     const response = await GET(new Request("http://localhost/render/progress"), {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(500);

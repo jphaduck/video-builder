@@ -1,7 +1,7 @@
 import {
   INTERNAL_SERVER_ERROR_MESSAGE,
   PROJECT_NOT_FOUND_ERROR,
-  getRequiredParam,
+  getRequiredUuidParam,
   isPrefixedError,
   jsonData,
   jsonError,
@@ -15,9 +15,13 @@ type ProjectTimelineRouteContext = {
 
 export async function GET(_request: Request, { params }: ProjectTimelineRouteContext) {
   const { projectId } = await params;
-  const { value: trimmedProjectId, response } = getRequiredParam(projectId, "Project ID");
+  const { value: trimmedProjectId, response } = getRequiredUuidParam(
+    projectId,
+    "Project ID",
+    "Invalid project ID.",
+  );
   if (response || !trimmedProjectId) {
-    return response ?? jsonError("Project ID is required.", 400);
+    return response ?? jsonError("Invalid project ID.", 400);
   }
 
   try {
@@ -35,9 +39,13 @@ export async function GET(_request: Request, { params }: ProjectTimelineRouteCon
 
 export async function POST(_request: Request, { params }: ProjectTimelineRouteContext) {
   const { projectId } = await params;
-  const { value: trimmedProjectId, response } = getRequiredParam(projectId, "Project ID");
+  const { value: trimmedProjectId, response } = getRequiredUuidParam(
+    projectId,
+    "Project ID",
+    "Invalid project ID.",
+  );
   if (response || !trimmedProjectId) {
-    return response ?? jsonError("Project ID is required.", 400);
+    return response ?? jsonError("Invalid project ID.", 400);
   }
 
   try {

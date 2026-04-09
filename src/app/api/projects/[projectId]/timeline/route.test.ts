@@ -4,6 +4,8 @@ const mockedGetProjectById = vi.fn();
 const mockedSetProjectStatus = vi.fn();
 const mockedGetTimelineDraftForProject = vi.fn();
 const mockedBuildTimelineDraft = vi.fn();
+const validProjectId = "11111111-1111-4111-8111-111111111111";
+const missingProjectId = "22222222-2222-4222-8222-222222222222";
 
 vi.mock("@/modules/projects/repository", () => ({
   getProjectById: (...args: unknown[]) => mockedGetProjectById(...args),
@@ -16,20 +18,20 @@ vi.mock("@/modules/timeline/service", () => ({
 }));
 
 describe("/api/projects/[projectId]/timeline", () => {
-  const timelineDraft = { id: "timeline-1", projectId: "project-123" };
+  const timelineDraft = { id: "timeline-1", projectId: validProjectId };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGetProjectById.mockResolvedValue({ id: "project-123" });
+    mockedGetProjectById.mockResolvedValue({ id: validProjectId });
     mockedGetTimelineDraftForProject.mockResolvedValue(timelineDraft);
     mockedBuildTimelineDraft.mockResolvedValue(timelineDraft);
-    mockedSetProjectStatus.mockResolvedValue({ id: "project-123" });
+    mockedSetProjectStatus.mockResolvedValue({ id: validProjectId });
   });
 
   it("returns the current timeline draft", async () => {
     const { GET } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(200);
@@ -46,12 +48,23 @@ describe("/api/projects/[projectId]/timeline", () => {
     await expect(response.json()).resolves.toEqual({ error: "Project ID is required." });
   });
 
+  it("returns 400 when projectId is not a UUID", async () => {
+    const { GET } = await import("@/app/api/projects/[projectId]/timeline/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ projectId: "../captions/abc" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the project does not exist", async () => {
     mockedGetProjectById.mockResolvedValue(null);
 
     const { GET } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "missing-project" }),
+      params: Promise.resolve({ projectId: missingProjectId }),
     });
 
     expect(response.status).toBe(404);
@@ -63,7 +76,7 @@ describe("/api/projects/[projectId]/timeline", () => {
 
     const { GET } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await GET({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(500);
@@ -73,15 +86,27 @@ describe("/api/projects/[projectId]/timeline", () => {
   it("builds a timeline draft on POST", async () => {
     const { POST } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await POST({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ data: timelineDraft });
-    expect(mockedBuildTimelineDraft).toHaveBeenCalledWith("project-123");
-    expect(mockedSetProjectStatus).toHaveBeenCalledWith("project-123", "timeline_ready", {
+    expect(mockedBuildTimelineDraft).toHaveBeenCalledWith(validProjectId);
+    expect(mockedSetProjectStatus).toHaveBeenCalledWith(validProjectId, "timeline_ready", {
       clearRenderJobIds: true,
     });
+  });
+
+  it("returns 400 for POST when projectId is not a UUID", async () => {
+    const { POST } = await import("@/app/api/projects/[projectId]/timeline/route");
+    const response = await POST({} as never, {
+      params: Promise.resolve({ projectId: "../captions/abc" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
+    expect(mockedBuildTimelineDraft).not.toHaveBeenCalled();
   });
 
   it("returns 404 for POST when the project does not exist", async () => {
@@ -89,7 +114,7 @@ describe("/api/projects/[projectId]/timeline", () => {
 
     const { POST } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await POST({} as never, {
-      params: Promise.resolve({ projectId: "missing-project" }),
+      params: Promise.resolve({ projectId: missingProjectId }),
     });
 
     expect(response.status).toBe(404);
@@ -101,7 +126,7 @@ describe("/api/projects/[projectId]/timeline", () => {
 
     const { POST } = await import("@/app/api/projects/[projectId]/timeline/route");
     const response = await POST({} as never, {
-      params: Promise.resolve({ projectId: "project-123" }),
+      params: Promise.resolve({ projectId: validProjectId }),
     });
 
     expect(response.status).toBe(500);
