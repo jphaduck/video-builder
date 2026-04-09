@@ -12,29 +12,24 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-Milestones 1 through 5 are complete: project persistence, story engine, script review/approval, scene/image planning, and voice/captions. The repo is now ready to move into timeline assembly and final rendering.
+All 5 product milestones are complete. The full pipeline now works end to end: script generation and approval, scene planning, image generation and review, narration, captions, timeline assembly, and final MP4 rendering all run inside the app.
 
 Completed work:
-- project persistence using per-project JSON files in `data/projects/`
-- project list route at `/projects`
-- project create and save flow at `/projects/new`, plus project deletion from `/projects`
-- project detail loading at `/projects/[projectId]`
-- story draft generation, version history, active draft switching, manual draft editing, reject/approve gating, and scene-planning unlock rules
-- scene plan generation from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, full-plan regeneration, and scene-plan approval gating
-- still-image generation and review for approved scenes, including multiple candidates per scene, thumbnail playback through `/api/assets/[assetId]`, single selection, per-scene approve/reject, and project-level image-plan approval
+- project persistence using per-project JSON files in `data/projects/`, including create, load, list, and delete flows
+- story generation with version history, manual draft editing, compare/switch, approval gating, and scene-planning unlock rules
+- scene planning from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, and approval gating
+- still-image generation and review for approved scenes, including local DALL-E 3 image downloads, thumbnail playback through `/api/assets/[assetId]`, single selection, per-scene approve/reject, and project-level image-plan approval
 - per-scene narration generation with OpenAI TTS and browser playback through `/api/narration/[trackId]/[sceneNumber]`
-- caption generation from approved narration audio with Whisper, plus inline caption text/timing edits and SRT/VTT export sidecars
+- caption generation from approved narration audio with Whisper, inline caption text/timing edits, and SRT/VTT export sidecars
+- timeline assembly and review from scenes, images, narration, and captions
+- final FFmpeg-based video rendering with burned-in captions, downloadable MP4 output, and in-app playback/streaming
 - reusable live evaluation harness for real OpenAI script-generation benchmarking under `npm run eval:scripts`
-- timeline/rendering scaffolds for the next milestones
 - Vitest service/smoke testing and GitHub Actions CI using `npm run validate`
 
-Implemented routes:
-- `/` homepage
-- `/projects` project list page
-- `/projects/new` new project page
-- `/projects/[projectId]` project detail page with story generation, scene planning, still-image review, narration, and caption review
-- `/api/assets/[assetId]` image file route
-- `/api/narration/[trackId]/[sceneNumber]` audio playback route
+What is left for a production-ready version:
+- replace file-backed JSON persistence with a real storage/database backend
+- add user authentication and per-user project ownership
+- improve UI polish, review UX, and error handling across the pipeline
 
 ## Run locally
 1. Install dependencies:

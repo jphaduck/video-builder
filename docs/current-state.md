@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-Milestone 6 render/export is now implemented end to end. The next priorities are image-generation provider polish, broader UI polish, and production-ready storage.
+All 5 product milestones are complete. The next phase is production hardening: storage, auth, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created
@@ -88,17 +88,19 @@ What exists:
 What does not exist yet:
 - editable timeline controls
 - background jobs/queueing
-- database-backed persistence
-- production-grade remote asset/render storage
-- deeper image-generation provider tuning and polish
+- production storage/database backend
+- user authentication
+- real-time render progress beyond polling
+- music/background audio layer in the render pipeline
+- broader UI polish and error-handling improvements
 
 Current priority:
-Polish the now-complete generation pipeline for production use, starting with image-generation quality/provider tuning, review UX polish, and storage hardening.
+Polish the now-complete pipeline for production use, starting with storage/auth foundations, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
-1. improve image-generation/provider quality and production wiring
-2. add editable timeline controls and higher-quality review polish
-3. move local file persistence toward production-ready storage and job handling
+1. replace local file persistence with a production storage backend
+2. add authentication and per-user project ownership
+3. improve UI polish, real-time render progress, and failure recovery
 
 Files to read first next session:
 - AGENTS.md

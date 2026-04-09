@@ -157,7 +157,7 @@
 - Impact: Every script generation now uses two model calls before any retry, and stage-2 prompts must include the generated beat outline as context.
 
 ## 2026-04-07 - Script validation floors were raised for cinematic pacing
-- Decision: Raise the minimum accepted script target to `Math.max(650, runtimeMinutes * 130)` words and `Math.max(10, runtimeMinutes * 2)` paragraphs.
+- Decision: Raise the minimum accepted script target to `Math.max(650, runtimeMinutes * 130)` words and `Math.max(8, ceil(runtimeMinutes * 1.2))` paragraphs.
 - Why: Earlier thresholds allowed technically valid drafts that still felt like compressed synopses, especially at 5-minute targets.
 - Impact: Shorter and flatter drafts are rejected more aggressively, and retry/expansion prompts must target the higher runtime floor explicitly.
 
@@ -190,3 +190,8 @@
 - Decision: Generate still-image candidates through `dall-e-3` at `1792x1024`, download each returned image URL immediately, and persist the image file locally under `data/assets/`.
 - Why: The asset workflow already had real candidate review and approval state, but relying on expiring provider URLs would make saved image candidates brittle for later review and rendering.
 - Impact: Scene image generation now produces two local candidates per scene, keeps the existing approval flow unchanged, and stores durable file paths rather than temporary CDN references.
+
+## 2026-04-08 - Planning now treats the pipeline as five completed product milestones
+- Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
+- Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.
+- Impact: Planning and status docs should describe the app as feature-complete for v1 workflow, with the next phase focused on production hardening rather than missing core stages.
