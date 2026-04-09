@@ -35,6 +35,16 @@ function getAssetImageFilePath(assetId: string): string {
   return path.join(ASSETS_DIR, `${assetId}.${IMAGE_EXTENSION}`);
 }
 
+function resolveAssetImagePath(imageFilePath: string): string | null {
+  const absoluteImagePath = path.resolve(process.cwd(), imageFilePath);
+
+  if (!absoluteImagePath.startsWith(`${ASSETS_DIR}${path.sep}`)) {
+    return null;
+  }
+
+  return absoluteImagePath;
+}
+
 function parseAssetCandidate(raw: string, filePath: string): AssetCandidate {
   try {
     return JSON.parse(raw) as AssetCandidate;
@@ -137,7 +147,11 @@ export async function deleteAssetCandidate(assetId: string): Promise<void> {
 
   await withAssetWriteLock(async () => {
     const asset = await getAssetCandidate(assetId);
-    const imageFilePath = asset?.imageFilePath ? path.join(process.cwd(), asset.imageFilePath) : getAssetImageFilePath(assetId);
+    const resolvedImagePath = asset?.imageFilePath
+      ? resolveAssetImagePath(asset.imageFilePath)
+      : null;
+    const imageFilePath =
+      resolvedImagePath ?? getAssetImageFilePath(assetId);
 
     await unlinkWithWarning(imageFilePath, `Asset image ${asset?.imageFilePath ?? imageFilePath}`);
     await unlinkWithWarning(getAssetMetadataFilePath(assetId), `Asset metadata ${assetId}`);

@@ -48,6 +48,7 @@ What exists:
   - per-scene selected-image approve/reject controls and project-level image-plan approval
   - image file route for browser thumbnails via `/api/assets/[assetId]`
   - image plan reaches `images_ready` only when every approved scene has one selected and approved image
+  - asset cleanup now ignores persisted image paths outside `data/assets`, preventing poisoned metadata from deleting arbitrary repo files during regeneration or project deletion
   - regenerating or re-selecting images invalidates downstream timeline/render artifacts without touching scenes, narration, or captions
 - narration workflow for approved scene plans:
   - per-scene narration generation using OpenAI TTS (`tts-1-hd`)

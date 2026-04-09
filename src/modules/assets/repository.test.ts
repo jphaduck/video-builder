@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -107,5 +107,23 @@ describe("asset repository persistence", () => {
     const reloaded = await loadModules();
     expect(await reloaded.assets.getAssetCandidate(candidate.id)).toEqual(candidate);
     expect(await reloaded.assets.getAssetCandidatesForProject(candidate.projectId)).toEqual([candidate]);
+  });
+
+  it("does not delete files outside data/assets when metadata stores an unsafe image path", async () => {
+    const { assets } = await loadModules();
+    const outsideFilePath = path.join(tempDir, "outside.png");
+    const safeAssetImagePath = path.join(tempDir, "data", "assets", "asset-1.png");
+    const candidate = createAssetCandidate("../outside.png");
+
+    await mkdir(path.dirname(safeAssetImagePath), { recursive: true });
+    await writeFile(outsideFilePath, "outside-image", "utf8");
+    await writeFile(safeAssetImagePath, "safe-image", "utf8");
+    await assets.saveAssetCandidate(candidate);
+
+    await assets.deleteAssetCandidate(candidate.id);
+
+    expect(await assets.getAssetCandidate(candidate.id)).toBeNull();
+    await expect(access(outsideFilePath)).resolves.toBeUndefined();
+    await expect(access(safeAssetImagePath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
