@@ -92,6 +92,7 @@ What exists:
   - `.env.example` documents current and future-facing AI provider variables
   - MIT license committed
   - Vitest smoke/service tests and GitHub Actions CI using `npm run validate`
+  - Next.js build tracing is pinned to the repository root so production builds do not infer `/Users/jp` from a parent lockfile in the Codex workspace
   - focused repository/service coverage now exercises high-risk project deletion cleanup, render-job file persistence/cleanup, and timeline draft assembly/error paths
   - reusable live script evaluation harness under `npm run eval:scripts`, with JSON reports that now calculate `passRate` from passed rows in `results`, `retryRate` from retry-triggered rows, and `retrySuccessRate` from successful retries
   - git now ignores generated artifacts across all `data/` workflow directories while tracking `.gitkeep` placeholders so the local folder structure remains intact
