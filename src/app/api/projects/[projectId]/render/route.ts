@@ -1,4 +1,12 @@
-import { NextResponse } from "next/server";
+import {
+  INTERNAL_SERVER_ERROR_MESSAGE,
+  PROJECT_NOT_FOUND_ERROR,
+  getRequiredParam,
+  isPrefixedError,
+  jsonData,
+  jsonError,
+} from "@/app/api/_utils";
+import { getProjectById } from "@/modules/projects/repository";
 import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
 import { startRenderForProject } from "@/modules/rendering/service";
 
@@ -8,40 +16,53 @@ type ProjectRenderRouteContext = {
 
 export async function GET(_request: Request, { params }: ProjectRenderRouteContext) {
   const { projectId } = await params;
-  const trimmedProjectId = projectId.trim();
-
-  if (!trimmedProjectId) {
-    return NextResponse.json({ error: "Project ID is required." }, { status: 400 });
+  const { value: trimmedProjectId, response } = getRequiredParam(projectId, "Project ID");
+  if (response || !trimmedProjectId) {
+    return response ?? jsonError("Project ID is required.", 400);
   }
 
   try {
+    const project = await getProjectById(trimmedProjectId);
+    if (!project) {
+      return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
+    }
+
     const job = await getLatestRenderJobForProject(trimmedProjectId);
-    return NextResponse.json({
-      ok: true,
-      data: job,
+    return jsonData({
+      job,
       renderStatus: job ? (job.status === "pending" ? "rendering" : job.status) : "idle",
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Something went wrong while loading render status.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
   }
 }
 
 export async function POST(_request: Request, { params }: ProjectRenderRouteContext) {
   const { projectId } = await params;
-  const trimmedProjectId = projectId.trim();
-
-  if (!trimmedProjectId) {
-    return NextResponse.json({ error: "Project ID is required." }, { status: 400 });
+  const { value: trimmedProjectId, response } = getRequiredParam(projectId, "Project ID");
+  if (response || !trimmedProjectId) {
+    return response ?? jsonError("Project ID is required.", 400);
   }
 
   try {
+    const project = await getProjectById(trimmedProjectId);
+    if (!project) {
+      return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
+    }
+
     const job = await startRenderForProject(trimmedProjectId);
-    return NextResponse.json({ ok: true, data: job }, { status: 202 });
+    return jsonData(job, { status: 202 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Something went wrong while starting the render.";
-    const status =
-      message.startsWith("Project not found:") ? 404 : message.startsWith("Timeline draft not found") ? 400 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const notFoundMessage = isPrefixedError(error, ["Project not found:"]);
+    if (notFoundMessage) {
+      return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
+    }
+
+    const badRequestMessage = isPrefixedError(error, ["Timeline draft not found for this project."]);
+    if (badRequestMessage) {
+      return jsonError(badRequestMessage, 400);
+    }
+
+    return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
   }
 }

@@ -84,6 +84,10 @@ What exists:
 - review UX hardening:
   - scene, image, narration, caption, timeline, and render panels now surface explicit empty states, visible error banners, and action-specific loading text instead of relying on silent disabled controls
   - timeline review now warns when a saved draft may be out of date relative to the latest approved content
+- API route hardening:
+  - JSON API routes now consistently return `{ data: ... }` on success and `{ error: string }` on failure
+  - project-scoped routes validate non-empty `projectId` params before doing work and return `400` / `404` / generic `500` responses instead of leaking internal failures
+  - stream and SSE routes keep binary/event-stream success responses but now return clean JSON error payloads when validation or repository lookups fail
 - foundational developer tooling:
   - `.env.example` documents current and future-facing AI provider variables
   - MIT license committed
@@ -96,7 +100,6 @@ What does not exist yet:
 - background jobs/queueing
 - production storage/database backend
 - user authentication
-- real-time render progress beyond polling
 - music/background audio layer in the render pipeline
 - broader UI polish and error-handling improvements
 

@@ -1,3 +1,10 @@
+import {
+  INTERNAL_SERVER_ERROR_MESSAGE,
+  PROJECT_NOT_FOUND_ERROR,
+  getRequiredParam,
+  jsonError,
+} from "@/app/api/_utils";
+import { getProjectById } from "@/modules/projects/repository";
 import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
 import type { RenderJob } from "@/modules/rendering/types";
 
@@ -27,69 +34,83 @@ function getProgressPayload(
 
 export async function GET(request: Request, { params }: ProjectRenderProgressRouteContext): Promise<Response> {
   const { projectId } = await params;
-  const trimmedProjectId = projectId.trim();
-
-  if (!trimmedProjectId) {
-    return new Response("Project ID is required.", { status: 400 });
+  const { value: trimmedProjectId, response } = getRequiredParam(projectId, "Project ID");
+  if (response || !trimmedProjectId) {
+    return response ?? jsonError("Project ID is required.", 400);
   }
 
-  const encoder = new TextEncoder();
+  try {
+    const project = await getProjectById(trimmedProjectId);
+    if (!project) {
+      return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
+    }
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      let closed = false;
-      let intervalId: ReturnType<typeof setInterval> | null = null;
+    const initialJob = await getLatestRenderJobForProject(trimmedProjectId);
+    const encoder = new TextEncoder();
 
-      const cleanup = (): void => {
-        if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-        }
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let closed = false;
+        let intervalId: ReturnType<typeof setInterval> | null = null;
+        let cachedJob = initialJob;
 
-        if (!closed) {
-          closed = true;
-          controller.close();
-        }
-      };
+        const cleanup = (): void => {
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
 
-      const sendPayload = async (): Promise<void> => {
-        try {
-          const job = await getLatestRenderJobForProject(trimmedProjectId);
-          const payload =
-            !job
-              ? getProgressPayload("idle", "No render job found.", null)
-              : job.status === "complete"
-                ? getProgressPayload("complete", job.progressMessage ?? "Render complete.", job)
-                : job.status === "error"
-                  ? getProgressPayload("error", job.errorMessage ?? job.progressMessage ?? "Render failed.", job)
-                  : getProgressPayload("rendering", job.progressMessage ?? "Rendering in progress...", job);
+          if (!closed) {
+            closed = true;
+            controller.close();
+          }
+        };
 
-          controller.enqueue(encoder.encode(serializeSseEvent(payload)));
+        const buildPayload = (job: RenderJob | null): RenderProgressPayload =>
+          !job
+            ? getProgressPayload("idle", "No render job found.", null)
+            : job.status === "complete"
+              ? getProgressPayload("complete", job.progressMessage ?? "Render complete.", job)
+              : job.status === "error"
+                ? getProgressPayload("error", job.errorMessage ?? job.progressMessage ?? "Render failed.", job)
+                : getProgressPayload("rendering", job.progressMessage ?? "Rendering in progress...", job);
 
-          if (payload.status === "idle" || payload.status === "complete" || payload.status === "error") {
+        const sendPayload = async (): Promise<void> => {
+          try {
+            const payload = buildPayload(cachedJob);
+            controller.enqueue(encoder.encode(serializeSseEvent(payload)));
+
+            if (payload.status === "idle" || payload.status === "complete" || payload.status === "error") {
+              cleanup();
+              return;
+            }
+
+            cachedJob = await getLatestRenderJobForProject(trimmedProjectId);
+          } catch {
+            controller.enqueue(
+              encoder.encode(serializeSseEvent(getProgressPayload("error", "Failed to read render progress.", null))),
+            );
             cleanup();
           }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Failed to read render progress.";
-          controller.enqueue(encoder.encode(serializeSseEvent(getProgressPayload("error", message, null))));
-          cleanup();
-        }
-      };
+        };
 
-      request.signal.addEventListener("abort", cleanup);
-      void sendPayload();
-      intervalId = setInterval(() => {
+        request.signal.addEventListener("abort", cleanup);
+        intervalId = setInterval(() => {
+          void sendPayload();
+        }, 1000);
         void sendPayload();
-      }, 1000);
-    },
-    cancel() {},
-  });
+      },
+      cancel() {},
+    });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  } catch {
+    return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
+  }
 }

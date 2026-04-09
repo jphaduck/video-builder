@@ -3,6 +3,7 @@ import { access, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
+import { INTERNAL_SERVER_ERROR_MESSAGE, jsonError } from "@/app/api/_utils";
 import { getAssetCandidate } from "@/modules/assets/repository";
 
 const UUID_PATTERN =
@@ -25,37 +26,41 @@ export async function GET(
   { params }: { params: Promise<{ assetId: string }> },
 ) {
   const { assetId } = await params;
+  const trimmedAssetId = assetId.trim();
 
-  if (!UUID_PATTERN.test(assetId)) {
-    return NextResponse.json({ error: "Invalid asset path." }, { status: 400 });
-  }
-
-  const asset = await getAssetCandidate(assetId);
-  if (!asset) {
-    return new NextResponse(null, { status: 404 });
-  }
-
-  const assetsRoot = path.resolve(process.cwd(), "data", "assets");
-  const filePath = path.resolve(process.cwd(), asset.imageFilePath);
-
-  if (!filePath.startsWith(`${assetsRoot}${path.sep}`)) {
-    return NextResponse.json({ error: "Invalid asset path." }, { status: 400 });
+  if (!UUID_PATTERN.test(trimmedAssetId)) {
+    return jsonError("Invalid asset path.", 400);
   }
 
   try {
+    const asset = await getAssetCandidate(trimmedAssetId);
+    if (!asset) {
+      return jsonError("Asset not found.", 404);
+    }
+
+    const assetsRoot = path.resolve(process.cwd(), "data", "assets");
+    const filePath = path.resolve(process.cwd(), asset.imageFilePath);
+
+    if (!filePath.startsWith(`${assetsRoot}${path.sep}`)) {
+      return jsonError("Invalid asset path.", 400);
+    }
+
     await access(filePath, fsConstants.R_OK);
-  } catch {
-    return new NextResponse(null, { status: 404 });
+    const fileStats = await stat(filePath);
+    const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
+
+    return new NextResponse(stream, {
+      headers: {
+        "Content-Type": getContentType(filePath),
+        "Content-Length": fileStats.size.toString(),
+        "Cache-Control": "private, max-age=60",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return jsonError("Asset not found.", 404);
+    }
+
+    return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
   }
-
-  const fileStats = await stat(filePath);
-  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
-
-  return new NextResponse(stream, {
-    headers: {
-      "Content-Type": getContentType(filePath),
-      "Content-Length": fileStats.size.toString(),
-      "Cache-Control": "private, max-age=60",
-    },
-  });
 }

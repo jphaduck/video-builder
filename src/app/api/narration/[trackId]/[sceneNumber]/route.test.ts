@@ -46,6 +46,7 @@ describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
     });
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid narration asset path." });
   });
 
   it("returns 400 for an invalid scene number", async () => {
@@ -55,16 +56,30 @@ describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
     });
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid narration asset path." });
   });
 
   it("returns 404 when the audio file is missing", async () => {
-    mockedAccess.mockRejectedValue(new Error("missing"));
+    mockedAccess.mockRejectedValue(Object.assign(new Error("missing"), { code: "ENOENT" }));
     const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
     const response = await GET({} as never, {
       params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
     });
 
     expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Narration audio not found." });
+  });
+
+  it("returns 500 for unexpected filesystem failures", async () => {
+    mockedStat.mockRejectedValue(new Error("boom"));
+
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "Internal server error." });
   });
 
   it("streams the audio file for valid requests", async () => {

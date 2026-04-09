@@ -201,6 +201,11 @@
 - Why: The latest 50-run script evaluation showed the dominant remaining failure mode was still-too-short retry drafts, especially in quieter institutional and corporate stories where the model kept "expanding" by restating existing material.
 - Impact: Retry prompts now reference concrete middle and ending beats from the generated outline, making the second pass add structural material instead of only broadening the prose.
 
+## 2026-04-09 - API routes now standardize validation and error envelopes
+- Decision: Standardize JSON API routes on `{ data: ... }` success payloads and `{ error: string }` failure payloads, while keeping stream/SSE endpoints binary on success and JSON on failures.
+- Why: Route behavior had drifted between success booleans, plain errors, and exposed internal exception text, which made the UI harder to reason about and left edge cases inconsistent.
+- Impact: Project-scoped routes now validate non-empty IDs up front, use `400` for bad input, `404` for missing projects/resources, and generic `500` responses for unexpected failures without leaking internals.
+
 ## 2026-04-08 - Planning now treats the pipeline as five completed product milestones
 - Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
 - Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.
