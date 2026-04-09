@@ -79,6 +79,7 @@ What exists:
   - async render start/status route at `/api/projects/[projectId]/render`
   - SSE progress route at `/api/projects/[projectId]/render/progress` for live render status and stage messages
   - browser video streaming route at `/api/projects/[projectId]/render/stream`
+  - render output streaming and render-job cleanup now ignore persisted output paths outside `data/renders`, preventing poisoned metadata from reading or deleting arbitrary repo files
   - render panel on the project detail page with live SSE status updates, stage progress messaging, HTML5 playback, and download link
   - successful renders promote the project to `rendered`
 - review UX hardening:

@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import { stat } from "node:fs/promises";
-import path from "node:path";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { INTERNAL_SERVER_ERROR_MESSAGE, PROJECT_NOT_FOUND_ERROR, getRequiredParam, jsonError } from "@/app/api/_utils";
 import { getProjectById } from "@/modules/projects/repository";
+import { resolveRenderOutputPath } from "@/modules/rendering/paths";
 import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
 
 type ProjectRenderStreamRouteContext = {
@@ -29,7 +29,11 @@ export async function GET(_request: Request, { params }: ProjectRenderStreamRout
       return jsonError("Rendered video not found.", 404);
     }
 
-    const absoluteOutputPath = path.join(process.cwd(), job.outputFilePath);
+    const absoluteOutputPath = resolveRenderOutputPath(job.outputFilePath);
+    if (!absoluteOutputPath) {
+      return jsonError("Invalid render output path.", 400);
+    }
+
     const fileStat = await stat(absoluteOutputPath);
     const stream = fs.createReadStream(absoluteOutputPath);
 

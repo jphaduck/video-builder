@@ -73,6 +73,23 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
     await expect(response.json()).resolves.toEqual({ error: "Project not found." });
   });
 
+  it("returns 400 when the persisted render output path escapes the renders directory", async () => {
+    mockedGetLatestRenderJobForProject.mockResolvedValue({
+      id: "render-1",
+      outputFilePath: "../secrets.mp4",
+    });
+
+    const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ projectId: "project-123" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid render output path." });
+    expect(mockedStat).not.toHaveBeenCalled();
+    expect(mockedCreateReadStream).not.toHaveBeenCalled();
+  });
+
   it("returns 500 for unexpected stream failures", async () => {
     mockedStat.mockRejectedValue(new Error("boom"));
 

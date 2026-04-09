@@ -5,10 +5,8 @@ import "server-only";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { RENDERING_DIR, resolveRenderOutputPath } from "@/modules/rendering/paths";
 import type { RenderJob } from "@/modules/rendering/types";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const RENDERING_DIR = path.join(DATA_DIR, "rendering");
 
 let renderWriteQueue: Promise<unknown> = Promise.resolve();
 
@@ -109,7 +107,10 @@ export async function deleteRenderJob(jobId: string): Promise<void> {
 
     if (job) {
       if (job.outputFilePath) {
-        cleanupPaths.add(path.join(process.cwd(), job.outputFilePath));
+        const absoluteOutputPath = resolveRenderOutputPath(job.outputFilePath);
+        if (absoluteOutputPath) {
+          cleanupPaths.add(absoluteOutputPath);
+        }
       }
 
       cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}.srt`));

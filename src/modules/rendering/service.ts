@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { captionSegmentsToSrt } from "@/modules/captions/srt";
 import { getProjectById, saveRenderJobForProject, setProjectStatus } from "@/modules/projects/repository";
 import { getTimelineDraftForProject } from "@/modules/timeline/service";
+import { RENDERING_DIR, RENDERS_DIR } from "@/modules/rendering/paths";
 import { getLatestRenderJobForProject, saveRenderJob, updateRenderJob } from "@/modules/rendering/repository";
 import type { CaptionSegment } from "@/types/caption";
 import type { NarrationSceneAudio } from "@/types/narration";
@@ -15,9 +16,6 @@ import type { AssetCandidate } from "@/modules/assets/types";
 import type { TimelineDraft } from "@/modules/timeline/types";
 import type { RenderJob } from "@/modules/rendering/types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const RENDERING_DIR = path.join(DATA_DIR, "rendering");
-const RENDERS_DIR = path.join(DATA_DIR, "renders");
 const RENDER_WIDTH = 1920;
 const RENDER_HEIGHT = 1080;
 const PLACEHOLDER_COLORS = ["#0f172a", "#1d4ed8", "#14532d", "#581c87", "#7c2d12", "#164e63"];

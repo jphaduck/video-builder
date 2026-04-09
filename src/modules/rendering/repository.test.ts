@@ -6,6 +6,7 @@ import type { RenderJob } from "@/modules/rendering/types";
 
 const originalCwd = process.cwd();
 let tempDir = "";
+let repoDir = "";
 
 function createJob(overrides: Partial<RenderJob> = {}): RenderJob {
   const now = "2026-04-09T00:00:00.000Z";
@@ -30,7 +31,9 @@ async function loadRepository() {
 
 beforeEach(async () => {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "render-repo-test-"));
-  process.chdir(tempDir);
+  repoDir = path.join(tempDir, "repo");
+  await mkdir(repoDir, { recursive: true });
+  process.chdir(repoDir);
 });
 
 afterEach(async () => {
@@ -66,7 +69,7 @@ describe("rendering repository", () => {
     ];
 
     for (const relativePath of artifactPaths) {
-      const filePath = path.join(tempDir, relativePath);
+      const filePath = path.join(repoDir, relativePath);
       await mkdir(path.dirname(filePath), { recursive: true });
       await writeFile(filePath, "artifact", "utf8");
     }
@@ -77,8 +80,21 @@ describe("rendering repository", () => {
     expect(await getRenderJob(job.id)).toBeNull();
     await Promise.all(
       artifactPaths.map((relativePath) =>
-        expect(access(path.join(tempDir, relativePath))).rejects.toMatchObject({ code: "ENOENT" }),
+        expect(access(path.join(repoDir, relativePath))).rejects.toMatchObject({ code: "ENOENT" }),
       ),
     );
+  });
+
+  it("does not delete files outside the renders directory when a job stores an unsafe output path", async () => {
+    const { deleteRenderJob, getRenderJob, saveRenderJob } = await loadRepository();
+    const outsideFilePath = path.join(tempDir, "outside.mp4");
+
+    await writeFile(outsideFilePath, "outside-artifact", "utf8");
+    await saveRenderJob(createJob({ outputFilePath: "../outside.mp4" }));
+
+    await deleteRenderJob("render-1");
+
+    expect(await getRenderJob("render-1")).toBeNull();
+    await expect(access(outsideFilePath)).resolves.toBeUndefined();
   });
 });
