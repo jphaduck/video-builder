@@ -255,12 +255,14 @@ async function updateRenderJobState(
   status: RenderJob["status"],
   outputFilePath: string | null,
   errorMessage: string | null,
+  progressMessage: string | null,
 ): Promise<RenderJob> {
   return updateRenderJob(jobId, (job) => ({
     ...job,
     status,
     outputFilePath,
     errorMessage,
+    progressMessage,
     updatedAt: new Date().toISOString(),
   }));
 }
@@ -279,6 +281,7 @@ export async function createRenderJob(projectId: string, timelineDraftId: string
     status: "rendering",
     outputFilePath: null,
     errorMessage: null,
+    progressMessage: "Preparing scene images...",
     createdAt: now,
     updatedAt: now,
   };
@@ -327,21 +330,25 @@ export async function renderProject(projectId: string): Promise<string> {
     throw new Error("Render job not found for this project.");
   }
 
-  await updateRenderJobState(renderJobId, "rendering", null, null);
+  await updateRenderJobState(renderJobId, "rendering", null, null, "Preparing scene images...");
 
   try {
     const renderScenes = await gatherRenderScenes(projectId, timelineDraft);
+    await updateRenderJobState(renderJobId, "rendering", null, null, "Merging narration audio...");
     const srtPath = await writeSrtFile(projectId, [...timelineDraft.captionTrack.segments].sort((a, b) => a.startMs - b.startMs));
     const audioPath = await concatenateNarrationAudio(projectId, renderScenes);
+    await updateRenderJobState(renderJobId, "rendering", null, null, "Assembling video...");
+    await updateRenderJobState(renderJobId, "rendering", null, null, "Burning in captions...");
     const outputPath = await createSlideshowVideo(projectId, renderScenes, audioPath, srtPath);
     const relativeOutputPath = path.relative(process.cwd(), outputPath);
 
-    await updateRenderJobState(renderJobId, "complete", relativeOutputPath, null);
+    await updateRenderJobState(renderJobId, "rendering", null, null, "Finalising export...");
+    await updateRenderJobState(renderJobId, "complete", relativeOutputPath, null, "Render complete.");
     await setProjectStatus(projectId, "rendered");
     return relativeOutputPath;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Render failed.";
-    await updateRenderJobState(renderJobId, "error", null, message);
+    await updateRenderJobState(renderJobId, "error", null, message, "Render failed.");
     throw error;
   }
 }

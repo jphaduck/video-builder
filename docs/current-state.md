@@ -76,8 +76,9 @@ What exists:
   - FFmpeg-based slideshow rendering that holds each scene still for its narration duration, merges per-scene narration into one audio track, and burns captions directly into the video
   - Sharp-generated 1920x1080 placeholder images when no approved still exists for a scene
   - async render start/status route at `/api/projects/[projectId]/render`
+  - SSE progress route at `/api/projects/[projectId]/render/progress` for live render status and stage messages
   - browser video streaming route at `/api/projects/[projectId]/render/stream`
-  - render panel on the project detail page with polling status, HTML5 playback, and download link
+  - render panel on the project detail page with live SSE status updates, stage progress messaging, HTML5 playback, and download link
   - successful renders promote the project to `rendered`
 - review UX hardening:
   - scene, image, narration, caption, timeline, and render panels now surface explicit empty states, visible error banners, and action-specific loading text instead of relying on silent disabled controls

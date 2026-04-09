@@ -31,6 +31,7 @@ type MockRenderJob = {
   status: "pending" | "rendering" | "complete" | "error";
   outputFilePath: string | null;
   errorMessage: string | null;
+  progressMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -47,6 +48,7 @@ describe("renderProject", () => {
         status: "rendering",
         outputFilePath: null,
         errorMessage: null,
+        progressMessage: "Preparing scene images...",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }),

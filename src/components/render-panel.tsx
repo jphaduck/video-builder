@@ -39,6 +39,7 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const renderStatus = useMemo(() => normalizeRenderStatus(renderJob), [renderJob]);
   const videoUrl = `/api/projects/${projectId}/render/stream`;
+  const progressMessage = renderJob?.progressMessage ?? null;
 
   useEffect(() => {
     setRenderJob(initialRenderJob);
@@ -49,21 +50,28 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
       return;
     }
 
-    const interval = window.setInterval(async () => {
-      const response = await fetch(`/api/projects/${projectId}/render`, { cache: "no-store" });
-      const payload = (await response.json()) as
-        | { ok: true; data: RenderJob | null; renderStatus: RenderStatus }
-        | { error: string };
+    const source = new EventSource(`/api/projects/${projectId}/render/progress`);
 
-      if (!("ok" in payload) || !payload.ok) {
-        setErrorMessage("Failed to refresh render status.");
-        return;
+    source.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { status: RenderStatus; message: string; job: RenderJob | null };
+
+        setRenderJob(payload.job);
+
+        if (payload.status === "complete" || payload.status === "error") {
+          source.close();
+        }
+      } catch {
+        setErrorMessage("Failed to parse render progress update.");
+        source.close();
       }
+    };
 
-      setRenderJob(payload.data);
-    }, 4000);
+    source.onerror = () => {
+      source.close();
+    };
 
-    return () => window.clearInterval(interval);
+    return () => source.close();
   }, [projectId, renderStatus]);
 
   async function handleRenderVideo(): Promise<void> {
@@ -91,6 +99,8 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
         Status: {renderStatus}
         {renderJob ? ` · Updated ${formatUpdatedAt(renderJob)}` : ""}
       </p>
+
+      {progressMessage ? <p className="subtitle" style={{ marginTop: 0 }}>{progressMessage}</p> : null}
 
       {errorMessage ? (
         <p className="subtitle" style={{ color: "#9f1239" }}>

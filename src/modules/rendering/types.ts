@@ -7,6 +7,7 @@ export interface RenderJob {
   status: RenderJobStatus;
   outputFilePath: string | null;
   errorMessage: string | null;
+  progressMessage: string | null;
   createdAt: string;
   updatedAt: string;
 }
