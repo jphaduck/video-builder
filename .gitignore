@@ -28,20 +28,20 @@ pnpm-debug.log*
 next-env.d.ts
 
 # local file storage
-/data/*.json
-/data/projects/*.json
-/data/scenes/*.json
-/data/captions/*.json
-/data/captions/*.srt
-/data/captions/*.vtt
-/data/narration/**
-/data/assets/*.json
-/data/timeline/*.json
-/data/rendering/*.json
+data/projects/*
+data/scenes/*
+data/assets/*
+data/narration/*
+data/captions/*
+data/timeline/*
+data/rendering/*
+data/renders/*
+!/data/.gitkeep
 !/data/projects/.gitkeep
 !/data/scenes/.gitkeep
-!/data/captions/.gitkeep
-!/data/narration/.gitkeep
 !/data/assets/.gitkeep
+!/data/narration/.gitkeep
+!/data/captions/.gitkeep
 !/data/timeline/.gitkeep
 !/data/rendering/.gitkeep
+!/data/renders/.gitkeep

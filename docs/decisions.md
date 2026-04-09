@@ -206,6 +206,11 @@
 - Why: Route behavior had drifted between success booleans, plain errors, and exposed internal exception text, which made the UI harder to reason about and left edge cases inconsistent.
 - Impact: Project-scoped routes now validate non-empty IDs up front, use `400` for bad input, `404` for missing projects/resources, and generic `500` responses for unexpected failures without leaking internals.
 
+## 2026-04-09 - Generated workflow artifacts stay local and out of Git
+- Decision: Ignore generated files under `data/projects`, `data/scenes`, `data/assets`, `data/narration`, `data/captions`, `data/timeline`, `data/rendering`, and `data/renders`, while tracking only `.gitkeep` placeholders.
+- Why: Project JSON, media outputs, subtitles, and render artifacts are runtime data, not source code, and they should not be reviewed or committed accidentally.
+- Impact: Local workflow data stays on disk for development, but Git history remains clean and free of generated assets.
+
 ## 2026-04-08 - Planning now treats the pipeline as five completed product milestones
 - Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
 - Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.
