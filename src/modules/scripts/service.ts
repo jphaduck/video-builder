@@ -297,42 +297,67 @@ function buildExpansionPrompt(
 ): string {
   const minimumWordCount = getMinimumNarrativeWordCount(input);
   const minimumParagraphCount = getMinimumParagraphCount(input);
-  const middleBeatCandidates = beatOutline.slice(2, Math.max(beatOutline.length - 2, 2));
-  const endingBeatCandidates = beatOutline.slice(-2);
-  const middleBeatSection = middleBeatCandidates.length
-    ? `Middle beats that need more space:
-${middleBeatCandidates.map((beat, index) => `- Beat ${index + 3}: ${beat}`).join("\n")}`
+  const interiorBeats = beatOutline
+    .map((beat, index) => ({ beat, index: index + 1 }))
+    .slice(2, Math.max(beatOutline.length - 2, 3));
+  const targetedBeats = (() => {
+    if (interiorBeats.length <= 3) {
+      return interiorBeats;
+    }
+
+    const selected = [
+      interiorBeats[0],
+      interiorBeats[Math.floor(interiorBeats.length / 2)],
+      interiorBeats[interiorBeats.length - 1],
+    ].filter((entry, index, array) => array.findIndex((candidate) => candidate.index === entry.index) === index);
+
+    return selected.slice(0, 3);
+  })();
+  const targetedBeatSection = targetedBeats.length
+    ? `Focus on these likely underdeveloped beats from the outline:
+${targetedBeats.map((entry) => `- Beat ${entry.index}: ${entry.beat}`).join("\n")}`
     : "";
-  const endingBeatStartIndex = Math.max(beatOutline.length - endingBeatCandidates.length + 1, 1);
+  const middleBeatSection = targetedBeats.length
+    ? `Middle beats that need more space:
+${targetedBeats.map((entry) => `- Beat ${entry.index}: ${entry.beat}`).join("\n")}`
+    : "";
+  const endingBeatStartIndex = Math.max(beatOutline.length - 1, 1);
+  const endingBeatCandidates = beatOutline
+    .slice(-2)
+    .map((beat, index) => ({ beat, index: endingBeatStartIndex + index }));
   const endingBeatSection = endingBeatCandidates.length
     ? `Ending beats that must land fully:
-${endingBeatCandidates.map((beat, index) => `- Beat ${endingBeatStartIndex + index}: ${beat}`).join("\n")}`
+${endingBeatCandidates.map((entry) => `- Beat ${entry.index}: ${entry.beat}`).join("\n")}`
     : "";
 
   return `
-The draft above is a good start but needs to be expanded significantly.
+This draft is not yet long enough. You must expand it significantly.
 It failed validation because: ${previousFailure}
+Do not rewrite it from scratch. Follow these exact steps:
 
-Do not rewrite it from scratch. Instead:
-- Keep the opening paragraph exactly as written.
-- Add at least 2 entirely new middle paragraphs tied to 2 distinct middle beats from the outline. Each of those beats must get its own paragraph.
-- Add at least 1 entirely new ending paragraph tied to one of the final beats from the outline so the ending fully lands.
-- Give each major plot beat its own paragraph - do not merge beats.
-- Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.
-- For quieter, procedural, or bureaucratic stories, treat paperwork, waiting, compliance pressure, professional isolation, and the lived consequences of each choice as real story beats rather than background exposition.
-- If the story's tension comes from institutions instead of pursuit, expand the delays, records, meetings, official language, and private consequences that make the pressure feel inescapable.
-- Let the final reflection breathe and land with emotional weight.
-- Do not restate what is already written. Add new content around and between existing beats.
-- The new middle and ending paragraphs must be tied to specific beats from the outline below, not generic filler.
-- If a beat is already mentioned briefly, expand it with new detail and consequences instead of repeating the same sentence in different words.
-- Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
-- The word target is a floor, not a stopping point. Do not stop near the minimum just because you crossed it.
-- Add enough new middle and ending material to move meaningfully past the floor when the story still feels lean.
-- Keep writing until the story feels complete and the ending fully lands.
+1. Find the three beats in the outline that received the least coverage in the draft above — the places where you wrote one short sentence instead of a full paragraph.
 
-${middleBeatSection}
-${middleBeatSection && endingBeatSection ? "\n" : ""}${endingBeatSection}
+2. For each of those three beats, write one entirely new paragraph that fully develops that beat: what specifically happened, what was at stake, what was felt or decided, and what changed as a result. Each new paragraph must be at least 80 words.
 
+3. Insert each new paragraph into the draft at the correct chronological position — do not append them all to the end.
+
+4. Expand the ending by at least one additional paragraph of quiet reflection. Do not restate events — show the weight of the outcome.
+
+5. Return the complete expanded draft in the same JSON format as before. The final script must be at least ${minimumWordCount} words and at least ${minimumParagraphCount} paragraphs. Do not stop before reaching both targets.
+
+${targetedBeatSection}
+${targetedBeatSection && middleBeatSection ? "\n\n" : ""}${middleBeatSection}
+${(targetedBeatSection || middleBeatSection) && endingBeatSection ? "\n\n" : ""}${endingBeatSection}
+
+Keep the opening paragraph exactly as written.
+Add at least 2 entirely new middle paragraphs tied to 2 distinct middle beats from the outline.
+Add at least 1 entirely new ending paragraph tied to one of the final beats from the outline so the ending fully lands.
+Give each major plot beat its own paragraph - do not merge beats.
+Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.
+For quieter, procedural, or bureaucratic stories, treat paperwork, waiting, compliance pressure, professional isolation, and the lived consequences of each choice as real story beats rather than background exposition.
+If the story's tension comes from institutions instead of pursuit, expand the delays, records, meetings, official language, and private consequences that make the pressure feel inescapable.
+If a beat is already mentioned briefly, expand it with new detail and consequences instead of repeating the same sentence in different words.
+Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
 Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
 `.trim();
 }
@@ -400,6 +425,7 @@ async function requestStoryOutput(
   const response = await openai.chat.completions.create({
     model: STORY_DRAFT_PROMPT.model,
     temperature: STORY_DRAFT_PROMPT.temperature,
+    max_tokens: 3000,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: STORY_DRAFT_PROMPT.systemPrompt },
