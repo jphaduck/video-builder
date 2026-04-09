@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-All 5 product milestones are complete. The next phase is production hardening: storage, auth, UI polish, stronger error handling, and better runtime ergonomics.
+All 6 roadmap milestones are complete. The next phase is production hardening: storage, auth, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created

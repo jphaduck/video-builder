@@ -14,7 +14,7 @@ The app is designed to:
 
 ## Current status
 
-All 5 milestones are complete. The full generation pipeline works end to end:
+All 6 roadmap milestones are complete. The full generation pipeline works end to end:
 
 **Script** → **Scenes** → **Images** → **Narration** → **Captions** → **Timeline** → **Render**
 
