@@ -220,6 +220,12 @@ export function NarrationPanel({
             </p>
           ) : null}
 
+          {!track ? (
+            <p className="subtitle" style={{ marginTop: 0 }}>
+              No narration track yet. Generate narration from the approved scenes to review voice, pacing, and audio quality.
+            </p>
+          ) : null}
+
           {canShowForm ? (
             <div className="grid" style={{ marginBottom: narrationExists ? 16 : 0 }}>
               <label>
@@ -355,11 +361,11 @@ export function NarrationPanel({
                   <button
                     type="button"
                     className="card"
-                    onClick={() => void handleApproveNarration()}
-                    disabled={pendingAction !== null}
-                    style={{ cursor: pendingAction ? "wait" : "pointer" }}
-                  >
-                    Approve Narration
+                  onClick={() => void handleApproveNarration()}
+                  disabled={pendingAction !== null}
+                  style={{ cursor: pendingAction ? "wait" : "pointer" }}
+                >
+                    {pendingAction === "approve" ? "Approving Narration..." : "Approve Narration"}
                   </button>
                   <button
                     type="button"
@@ -368,7 +374,7 @@ export function NarrationPanel({
                     disabled={pendingAction !== null}
                     style={{ cursor: pendingAction ? "wait" : "pointer" }}
                   >
-                    Reject Narration
+                    {pendingAction === "reject" ? "Rejecting Narration..." : "Reject Narration"}
                   </button>
                 </div>
               ) : null}

@@ -79,6 +79,9 @@ What exists:
   - browser video streaming route at `/api/projects/[projectId]/render/stream`
   - render panel on the project detail page with polling status, HTML5 playback, and download link
   - successful renders promote the project to `rendered`
+- review UX hardening:
+  - scene, image, narration, caption, timeline, and render panels now surface explicit empty states, visible error banners, and action-specific loading text instead of relying on silent disabled controls
+  - timeline review now warns when a saved draft may be out of date relative to the latest approved content
 - foundational developer tooling:
   - `.env.example` documents current and future-facing AI provider variables
   - MIT license committed

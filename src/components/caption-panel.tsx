@@ -178,15 +178,20 @@ export function CaptionPanel({ projectId, initialNarrationTrack, initialCaptionT
           ) : null}
 
           {!captionTrack ? (
-            <button
-              type="button"
-              className="card"
-              onClick={() => void handleGenerateCaptions()}
-              disabled={pendingAction !== null}
-              style={{ cursor: pendingAction ? "wait" : "pointer" }}
-            >
-              {pendingAction === "generate-captions" ? "Generating Captions..." : "Generate Captions"}
-            </button>
+            <>
+              <p className="subtitle" style={{ marginTop: 0 }}>
+                No captions yet. Generate captions from the approved narration track to review and edit them here.
+              </p>
+              <button
+                type="button"
+                className="card"
+                onClick={() => void handleGenerateCaptions()}
+                disabled={pendingAction !== null}
+                style={{ cursor: pendingAction ? "wait" : "pointer" }}
+              >
+                {pendingAction === "generate-captions" ? "Generating Captions..." : "Generate Captions"}
+              </button>
+            </>
           ) : (
             <>
               {captionTrack.isStale ? (

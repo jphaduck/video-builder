@@ -104,6 +104,12 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
         </p>
       ) : null}
 
+      {!renderJob ? (
+        <p className="subtitle" style={{ marginTop: 0 }}>
+          No rendered video yet. Start a render to create the final MP4 from the current timeline.
+        </p>
+      ) : null}
+
       <button
         type="button"
         className="card"

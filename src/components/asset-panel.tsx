@@ -240,7 +240,7 @@ export function AssetPanel({
         return;
       }
 
-      setSuccessMessage("Image plan approved. Timeline assembly will be available once implemented.");
+      setSuccessMessage("Image plan approved. Timeline review is ready below.");
       router.refresh();
     });
   }
@@ -284,7 +284,7 @@ export function AssetPanel({
 
           {isImagePlanApproved ? (
             <p className="subtitle" style={{ marginTop: 12 }}>
-              <strong>Image plan approved.</strong> Timeline assembly will be available here once implemented.
+              <strong>Image plan approved.</strong> Timeline review is ready below.
             </p>
           ) : (
             <p className="subtitle" style={{ marginTop: 12 }}>
@@ -379,7 +379,11 @@ export function AssetPanel({
                                   disabled={isBusy || isImagePlanApproved || asset.selected}
                                   style={{ cursor: isBusy ? "wait" : "pointer", width: "100%" }}
                                 >
-                                  {asset.selected ? "Selected" : "Select Image"}
+                                  {pendingAction === `select-${asset.id}`
+                                    ? "Selecting..."
+                                    : asset.selected
+                                      ? "Selected"
+                                      : "Select Image"}
                                 </button>
                               </article>
                             ))}
@@ -403,7 +407,7 @@ export function AssetPanel({
                                 disabled={isBusy || !selectedAsset}
                                 style={{ cursor: isBusy ? "wait" : "pointer" }}
                               >
-                                Approve Selected
+                                {pendingAction === `approve-${scene.id}` ? "Approving Image..." : "Approve Selected"}
                               </button>
                               <button
                                 type="button"
@@ -412,7 +416,7 @@ export function AssetPanel({
                                 disabled={isBusy || !selectedAsset}
                                 style={{ cursor: isBusy ? "wait" : "pointer" }}
                               >
-                                Reject Selected
+                                {pendingAction === `reject-${scene.id}` ? "Rejecting Image..." : "Reject Selected"}
                               </button>
                             </div>
                           ) : null}

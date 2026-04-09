@@ -351,7 +351,7 @@ export function ScenePlanningPanel({
               <p className="subtitle" style={{ marginTop: 0 }}>
                 <strong>Scene plan approved</strong>
               </p>
-              <p className="subtitle">Image generation will be available here once implemented.</p>
+              <p className="subtitle">Still-image generation is now available below.</p>
             </>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -487,7 +487,7 @@ export function ScenePlanningPanel({
                             disabled={isBusy}
                             style={{ cursor: isBusy ? "wait" : "pointer" }}
                           >
-                            Save Changes
+                            {pendingAction === `save-${scene.id}` ? "Saving..." : "Save Changes"}
                           </button>
                           <button
                             type="button"
@@ -496,7 +496,7 @@ export function ScenePlanningPanel({
                             disabled={isBusy}
                             style={{ cursor: isBusy ? "wait" : "pointer" }}
                           >
-                            Regenerate Scene
+                            {pendingAction === `regenerate-${scene.id}` ? "Regenerating Scene..." : "Regenerate Scene"}
                           </button>
                           <button
                             type="button"
@@ -505,7 +505,9 @@ export function ScenePlanningPanel({
                             disabled={isBusy}
                             style={{ cursor: isBusy ? "wait" : "pointer" }}
                           >
-                            Regenerate Image Prompt
+                            {pendingAction === `regenerate-prompt-${scene.id}`
+                              ? "Regenerating Prompt..."
+                              : "Regenerate Image Prompt"}
                           </button>
                           <button
                             type="button"
@@ -514,7 +516,7 @@ export function ScenePlanningPanel({
                             disabled={isBusy}
                             style={{ cursor: isBusy ? "wait" : "pointer" }}
                           >
-                            Approve
+                            {pendingAction === `approve-${scene.id}` ? "Approving..." : "Approve"}
                           </button>
                           <button
                             type="button"
@@ -523,7 +525,7 @@ export function ScenePlanningPanel({
                             disabled={isBusy}
                             style={{ cursor: isBusy ? "wait" : "pointer" }}
                           >
-                            Reject
+                            {pendingAction === `reject-${scene.id}` ? "Rejecting..." : "Reject"}
                           </button>
                         </div>
                       ) : null}
@@ -554,7 +556,7 @@ export function ScenePlanningPanel({
                   disabled={!canApproveScenePlan || pendingAction !== null}
                   style={{ cursor: canApproveScenePlan && !pendingAction ? "pointer" : "not-allowed", marginTop: 12 }}
                 >
-                  Approve Scene Plan
+                  {pendingAction === "approve-scene-plan" ? "Approving Scene Plan..." : "Approve Scene Plan"}
                 </button>
                 {!canApproveScenePlan ? (
                   <p className="subtitle" style={{ margin: "8px 0 0" }}>

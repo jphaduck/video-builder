@@ -114,6 +114,8 @@ export function TimelinePanel({ project, initialTimelineDraft, canBuildTimeline 
 
   const timelineRows = useMemo(() => buildTimelineRows(timelineDraft), [timelineDraft]);
   const hasTimelineDraft = Boolean(timelineDraft);
+  const timelineMayBeOutOfDate =
+    hasTimelineDraft && project.status !== "timeline_ready" && project.status !== "rendered";
 
   async function handleBuildTimeline(): Promise<void> {
     setPendingAction(true);
@@ -153,25 +155,38 @@ export function TimelinePanel({ project, initialTimelineDraft, canBuildTimeline 
         </p>
       ) : null}
 
+      {timelineMayBeOutOfDate ? (
+        <p className="subtitle" style={{ color: "#9a3412" }}>
+          This timeline may be out of date. Rebuild to sync with the latest approved content.
+        </p>
+      ) : null}
+
       {!canBuildTimeline ? (
         <p className="subtitle">Timeline building unlocks once the approved narration has a current, non-stale caption track.</p>
       ) : (
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: hasTimelineDraft ? 16 : 0 }}>
-          <button
-            type="button"
-            className="card"
-            onClick={() => void handleBuildTimeline()}
-            disabled={pendingAction}
-            style={{ cursor: pendingAction ? "wait" : "pointer" }}
-          >
-            {pendingAction ? "Building Timeline..." : hasTimelineDraft ? "Rebuild Timeline" : "Build Timeline"}
-          </button>
-          {hasTimelineDraft ? (
-            <p className="subtitle" style={{ margin: 0, color: "#166534" }}>
-              Timeline ready — proceed to render.
+        <>
+          {!hasTimelineDraft ? (
+            <p className="subtitle" style={{ marginTop: 0 }}>
+              No timeline draft yet. Build the timeline to review scene order, offsets, and caption coverage before rendering.
             </p>
           ) : null}
-        </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: hasTimelineDraft ? 16 : 0 }}>
+            <button
+              type="button"
+              className="card"
+              onClick={() => void handleBuildTimeline()}
+              disabled={pendingAction}
+              style={{ cursor: pendingAction ? "wait" : "pointer" }}
+            >
+              {pendingAction ? "Building Timeline..." : hasTimelineDraft ? "Rebuild Timeline" : "Build Timeline"}
+            </button>
+            {hasTimelineDraft ? (
+              <p className="subtitle" style={{ margin: 0, color: "#166534" }}>
+                Timeline ready — proceed to render.
+              </p>
+            ) : null}
+          </div>
+        </>
       )}
 
       {hasTimelineDraft ? (
