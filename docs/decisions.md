@@ -196,6 +196,11 @@
 - Why: The asset workflow already had real candidate review and approval state, but relying on expiring provider URLs would make saved image candidates brittle for later review and rendering.
 - Impact: Scene image generation now produces two local candidates per scene, keeps the existing approval flow unchanged, and stores durable file paths rather than temporary CDN references.
 
+## 2026-04-09 - Retry expansion now adds fixed beat-tied paragraphs instead of generic extra length
+- Decision: When a story draft misses the retryable floor, the expansion prompt must add at least two new middle paragraphs and one new ending paragraph tied to specific outline beats.
+- Why: The latest 50-run script evaluation showed the dominant remaining failure mode was still-too-short retry drafts, especially in quieter institutional and corporate stories where the model kept "expanding" by restating existing material.
+- Impact: Retry prompts now reference concrete middle and ending beats from the generated outline, making the second pass add structural material instead of only broadening the prose.
+
 ## 2026-04-08 - Planning now treats the pipeline as five completed product milestones
 - Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
 - Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.

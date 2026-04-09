@@ -292,10 +292,22 @@ ${beatOutlineSection}
 
 function buildExpansionPrompt(
   input: StoryGenerationInput,
+  beatOutline: string[],
   previousFailure: string,
 ): string {
   const minimumWordCount = getMinimumNarrativeWordCount(input);
   const minimumParagraphCount = getMinimumParagraphCount(input);
+  const middleBeatCandidates = beatOutline.slice(2, Math.max(beatOutline.length - 2, 2));
+  const endingBeatCandidates = beatOutline.slice(-2);
+  const middleBeatSection = middleBeatCandidates.length
+    ? `Middle beats that need more space:
+${middleBeatCandidates.map((beat, index) => `- Beat ${index + 3}: ${beat}`).join("\n")}`
+    : "";
+  const endingBeatStartIndex = Math.max(beatOutline.length - endingBeatCandidates.length + 1, 1);
+  const endingBeatSection = endingBeatCandidates.length
+    ? `Ending beats that must land fully:
+${endingBeatCandidates.map((beat, index) => `- Beat ${endingBeatStartIndex + index}: ${beat}`).join("\n")}`
+    : "";
 
   return `
 The draft above is a good start but needs to be expanded significantly.
@@ -303,17 +315,23 @@ It failed validation because: ${previousFailure}
 
 Do not rewrite it from scratch. Instead:
 - Keep the opening paragraph exactly as written.
-- Expand the middle section by adding 3-5 new paragraphs. Each major beat from the plot notes should occupy its own paragraph minimum.
+- Add at least 2 entirely new middle paragraphs tied to 2 distinct middle beats from the outline. Each of those beats must get its own paragraph.
+- Add at least 1 entirely new ending paragraph tied to one of the final beats from the outline so the ending fully lands.
 - Give each major plot beat its own paragraph - do not merge beats.
 - Deepen procedural detail, internal decision-making, and environmental atmosphere in the escalation and attrition sections.
 - For quieter, procedural, or bureaucratic stories, treat paperwork, waiting, compliance pressure, professional isolation, and the lived consequences of each choice as real story beats rather than background exposition.
 - If the story's tension comes from institutions instead of pursuit, expand the delays, records, meetings, official language, and private consequences that make the pressure feel inescapable.
-- Expand the ending by at least 2 paragraphs - let the final reflection breathe and land with emotional weight.
+- Let the final reflection breathe and land with emotional weight.
 - Do not restate what is already written. Add new content around and between existing beats.
+- The new middle and ending paragraphs must be tied to specific beats from the outline below, not generic filler.
+- If a beat is already mentioned briefly, expand it with new detail and consequences instead of repeating the same sentence in different words.
 - Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
 - The word target is a floor, not a stopping point. Do not stop near the minimum just because you crossed it.
 - Add enough new middle and ending material to move meaningfully past the floor when the story still feels lean.
 - Keep writing until the story feels complete and the ending fully lands.
+
+${middleBeatSection}
+${middleBeatSection && endingBeatSection ? "\n" : ""}${endingBeatSection}
 
 Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
 `.trim();
@@ -435,7 +453,7 @@ async function requestExpandedStoryOutput(
       },
       {
         role: "user",
-        content: buildExpansionPrompt(input, previousFailure),
+        content: buildExpansionPrompt(input, beatOutline, previousFailure),
       },
     ],
   });

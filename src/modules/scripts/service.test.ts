@@ -248,7 +248,7 @@ describe("generateStoryDraft", () => {
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: "user",
-          content: expect.stringContaining("Keep the opening paragraph exactly as written."),
+          content: expect.stringContaining("Add at least 2 entirely new middle paragraphs tied to 2 distinct middle beats from the outline."),
         }),
       ]),
     });
@@ -256,7 +256,7 @@ describe("generateStoryDraft", () => {
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: "user",
-          content: expect.stringContaining("Target: at least 650 words and 8 paragraphs."),
+          content: expect.stringContaining("Add at least 1 entirely new ending paragraph tied to one of the final beats from the outline so the ending fully lands."),
         }),
       ]),
     });
@@ -265,6 +265,30 @@ describe("generateStoryDraft", () => {
         expect.objectContaining({
           role: "assistant",
           content: expect.stringContaining("Hook:"),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("Middle beats that need more space:"),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("Ending beats that must land fully:"),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("Target: at least 650 words and 8 paragraphs."),
         }),
       ]),
     });
@@ -305,7 +329,19 @@ describe("generateStoryDraft", () => {
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: "user",
-          content: expect.stringContaining("Expand the middle section by adding 3-5 new paragraphs."),
+          content: expect.stringContaining(
+            "Add at least 2 entirely new middle paragraphs tied to 2 distinct middle beats from the outline.",
+          ),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(
+            "If a beat is already mentioned briefly, expand it with new detail and consequences instead of repeating the same sentence in different words.",
+          ),
         }),
       ]),
     });
