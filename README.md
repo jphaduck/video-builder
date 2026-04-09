@@ -12,24 +12,32 @@ The app is designed to:
 - assemble the final video with motion, transitions, subtitles, music, and export
 
 ## Current status
-All 5 product milestones are complete. The full pipeline now works end to end: script generation and approval, scene planning, image generation and review, narration, captions, timeline assembly, and final MP4 rendering all run inside the app.
+All 5 milestones are complete. The full generation pipeline works end to end:
 
-Completed work:
-- project persistence using per-project JSON files in `data/projects/`, including create, load, list, and delete flows
-- story generation with version history, manual draft editing, compare/switch, approval gating, and scene-planning unlock rules
-- scene planning from an approved script with per-scene duration targets, visual intent, image prompts, edit/regenerate controls, and approval gating
-- still-image generation and review for approved scenes, including local DALL-E 3 image downloads, thumbnail playback through `/api/assets/[assetId]`, single selection, per-scene approve/reject, and project-level image-plan approval
-- per-scene narration generation with OpenAI TTS and browser playback through `/api/narration/[trackId]/[sceneNumber]`
-- caption generation from approved narration audio with Whisper, inline caption text/timing edits, and SRT/VTT export sidecars
-- timeline assembly and review from scenes, images, narration, and captions
-- final FFmpeg-based video rendering with burned-in captions, downloadable MP4 output, and in-app playback/streaming
-- reusable live evaluation harness for real OpenAI script-generation benchmarking under `npm run eval:scripts`
-- Vitest service/smoke testing and GitHub Actions CI using `npm run validate`
+**Script** → **Scenes** → **Images** → **Narration** → **Captions** → **Timeline** → **Render**
 
-What is left for a production-ready version:
-- replace file-backed JSON persistence with a real storage/database backend
-- add user authentication and per-user project ownership
-- improve UI polish, review UX, and error handling across the pipeline
+What is implemented:
+
+* Project persistence with file-backed JSON storage
+* Two-stage story generation (beat outline → full cinematic script) with
+  validation, draft versioning, approve/reject gating, and manual editing
+* Scene planning with per-scene image prompt generation, regeneration,
+  and approval
+* Still image generation via DALL-E 3 with 2 candidates per scene and
+  a selection/approval flow
+* Per-scene narration via OpenAI TTS with regenerate and approve controls
+* Caption generation via Whisper with inline text and timing editing
+* Timeline assembly with per-scene duration and caption preview
+* Video render pipeline using FFmpeg — produces a real MP4 with burned-in
+  captions and merged narration audio
+* Real-time render progress via Server-Sent Events
+
+What remains for a production-ready version:
+
+* Replace file-based JSON storage with a production database
+* User authentication
+* Music/background audio layer in the render pipeline
+* UI polish and improved error messaging
 
 ## Run locally
 1. Install dependencies:
@@ -59,13 +67,10 @@ What is left for a production-ready version:
    - open the generated project detail page after saving
 
 ## Notes
-- This is a slideshow storytelling product, not a full animation product.
-- Image generation and review are now implemented; final timeline editing and render export are still upcoming.
-- Project persistence is currently local/file-backed under `data/projects/{projectId}.json`.
-- Scene persistence is currently local/file-backed under `data/scenes/{sceneId}.json`.
-- Asset candidates and generated still images are stored under `data/assets/`.
-- Narration tracks are stored under `data/narration/{trackId}/`.
-- Caption tracks and subtitle exports are stored under `data/captions/`.
+* This is a slideshow storytelling product, not a full animation product.
+* All generation steps use real OpenAI APIs (GPT-4o, DALL-E 3, TTS, Whisper).
+* Storage is currently local/file-backed. A production backend is planned.
+* FFmpeg must be available on the host system for rendering to work.
 
 ## License
 MIT. See [LICENSE](/Users/jp/.codex/workspaces/default/repo/LICENSE).
