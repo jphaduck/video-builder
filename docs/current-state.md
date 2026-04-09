@@ -84,6 +84,7 @@ What exists:
 - review UX hardening:
   - scene, image, narration, caption, timeline, and render panels now surface explicit empty states, visible error banners, and action-specific loading text instead of relying on silent disabled controls
   - timeline review now warns when a saved draft may be out of date relative to the latest approved content
+  - render start now honors the standardized `{ data }` API envelope, and the render panel surfaces explicit start/progress stream failures instead of silently treating successful starts as errors or stalling on disconnects
 - API route hardening:
   - JSON API routes now consistently return `{ data: ... }` on success and `{ error: string }` on failure
   - project-scoped routes validate non-empty `projectId` params before doing work and return `400` / `404` / generic `500` responses instead of leaking internal failures

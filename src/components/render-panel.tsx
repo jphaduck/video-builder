@@ -10,6 +10,8 @@ type RenderPanelProps = {
 
 type RenderStatus = "idle" | "rendering" | "complete" | "error";
 
+type RenderJobResponse = { data: RenderJob } | { error: string };
+
 function normalizeRenderStatus(job: RenderJob | null): RenderStatus {
   if (!job) {
     return "idle";
@@ -34,6 +36,24 @@ function formatUpdatedAt(job: RenderJob | null): string | null {
   return new Date(job.updatedAt).toLocaleString();
 }
 
+function isRenderJobPayload(payload: unknown): payload is { data: RenderJob } {
+  return typeof payload === "object" && payload !== null && "data" in payload;
+}
+
+function getErrorMessage(payload: unknown, fallbackMessage: string): string {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "error" in payload &&
+    typeof payload.error === "string" &&
+    payload.error.trim()
+  ) {
+    return payload.error;
+  }
+
+  return fallbackMessage;
+}
+
 export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
   const [renderJob, setRenderJob] = useState<RenderJob | null>(initialRenderJob);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -43,6 +63,7 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
 
   useEffect(() => {
     setRenderJob(initialRenderJob);
+    setErrorMessage(null);
   }, [initialRenderJob]);
 
   useEffect(() => {
@@ -57,6 +78,7 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
         const payload = JSON.parse(event.data) as { status: RenderStatus; message: string; job: RenderJob | null };
 
         setRenderJob(payload.job);
+        setErrorMessage(payload.status === "error" ? payload.job?.errorMessage ?? payload.message : null);
 
         if (payload.status === "complete" || payload.status === "error") {
           source.close();
@@ -68,6 +90,7 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
     };
 
     source.onerror = () => {
+      setErrorMessage("Lost live render progress updates. Refresh the page to check the current render status.");
       source.close();
     };
 
@@ -77,15 +100,24 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
   async function handleRenderVideo(): Promise<void> {
     setErrorMessage(null);
 
-    const response = await fetch(`/api/projects/${projectId}/render`, { method: "POST" });
-    const payload = (await response.json()) as { ok: true; data: RenderJob } | { error: string };
+    try {
+      const response = await fetch(`/api/projects/${projectId}/render`, { method: "POST" });
+      const payload = (await response.json()) as RenderJobResponse;
 
-    if (!("ok" in payload) || !payload.ok) {
-      setErrorMessage("error" in payload ? payload.error : "Failed to start the render job.");
-      return;
+      if (!response.ok) {
+        setErrorMessage(getErrorMessage(payload, "Failed to start the render job."));
+        return;
+      }
+
+      if (!isRenderJobPayload(payload)) {
+        setErrorMessage("Failed to start the render job.");
+        return;
+      }
+
+      setRenderJob(payload.data);
+    } catch {
+      setErrorMessage("Failed to start the render job.");
     }
-
-    setRenderJob(payload.data);
   }
 
   return (
