@@ -42,7 +42,7 @@ describe("DELETE /api/projects/[projectId]", () => {
     });
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: "Project not found: missing-project" });
+    await expect(response.json()).resolves.toEqual({ error: "Project not found." });
   });
 
   it("returns 500 for unexpected failures", async () => {

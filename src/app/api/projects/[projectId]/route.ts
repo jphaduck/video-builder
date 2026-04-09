@@ -1,4 +1,11 @@
-import { INTERNAL_SERVER_ERROR_MESSAGE, getRequiredParam, jsonData, jsonError, isPrefixedError } from "@/app/api/_utils";
+import {
+  INTERNAL_SERVER_ERROR_MESSAGE,
+  PROJECT_NOT_FOUND_ERROR,
+  getRequiredParam,
+  jsonData,
+  jsonError,
+  isPrefixedError,
+} from "@/app/api/_utils";
 import { deleteProjectById } from "@/modules/projects/repository";
 
 type ProjectRouteContext = {
@@ -18,7 +25,7 @@ export async function DELETE(_request: Request, { params }: ProjectRouteContext)
   } catch (error) {
     const notFoundMessage = isPrefixedError(error, ["Project not found:"]);
     if (notFoundMessage) {
-      return jsonError(notFoundMessage, 404);
+      return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
     return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
