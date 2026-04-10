@@ -53,12 +53,16 @@ describe("RenderPanel", () => {
       json: vi.fn().mockResolvedValue({ data: job }),
     });
 
-    render(<RenderPanel projectId="project-1" initialRenderJob={null} />);
+    render(<RenderPanel projectId="project-1" initialRenderJob={null} initialMusicTrack="subtle" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Render Video" }));
 
     await waitFor(() =>
-      expect(mockedFetch).toHaveBeenCalledWith("/api/projects/project-1/render", { method: "POST" }),
+      expect(mockedFetch).toHaveBeenCalledWith("/api/projects/project-1/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ musicTrack: "subtle" }),
+      }),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Rendering Video..." })).toBeDisabled(),
@@ -72,7 +76,7 @@ describe("RenderPanel", () => {
   it("shows a request error when starting the render fails", async () => {
     mockedFetch.mockRejectedValue(new Error("network down"));
 
-    render(<RenderPanel projectId="project-1" initialRenderJob={null} />);
+    render(<RenderPanel projectId="project-1" initialRenderJob={null} initialMusicTrack="subtle" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Render Video" }));
 
@@ -81,7 +85,7 @@ describe("RenderPanel", () => {
   });
 
   it("surfaces progress stream disconnects while a render is active", async () => {
-    render(<RenderPanel projectId="project-1" initialRenderJob={createRenderJob()} />);
+    render(<RenderPanel projectId="project-1" initialRenderJob={createRenderJob()} initialMusicTrack="subtle" />);
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
 

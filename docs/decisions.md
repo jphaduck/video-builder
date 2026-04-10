@@ -211,6 +211,11 @@
 - Why: The old approach could lose an in-flight render on process restart and had no persisted record of queued/running work beyond the last render job file.
 - Impact: Render starts now enqueue durable jobs, duplicate active renders per project are prevented, and worker restarts can resume queued/running jobs without changing the render review UI.
 
+## 2026-04-09 - Render pipeline now supports an optional ambient music bed
+- Decision: Add a project-level `musicTrack` / `musicVolume` preference and mix a bundled ambient audio track underneath narration during final export when the track is not `none`.
+- Why: The render pipeline previously produced dry narration-only exports, and adding a quiet optional music layer improves the final output without changing any earlier review stages.
+- Impact: Projects now persist render-audio preferences, the render UI includes a music selector, and FFmpeg creates either a narration-only export or a narration-plus-music mix depending on the selected track.
+
 ## 2026-04-09 - Generated workflow artifacts stay local and out of Git
 - Decision: Ignore generated files under `data/projects`, `data/scenes`, `data/assets`, `data/narration`, `data/captions`, `data/timeline`, `data/rendering`, and `data/renders`, while tracking only `.gitkeep` placeholders.
 - Why: Project JSON, media outputs, subtitles, and render artifacts are runtime data, not source code, and they should not be reviewed or committed accidentally.

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { RenderJob } from "@/modules/rendering/types";
+import type { ProjectMusicTrack } from "@/types/project";
 
 type RenderPanelProps = {
   projectId: string;
   initialRenderJob: RenderJob | null;
+  initialMusicTrack: ProjectMusicTrack;
 };
 
 type RenderStatus = "idle" | "rendering" | "complete" | "error";
@@ -54,9 +56,10 @@ function getErrorMessage(payload: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
-export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
+export function RenderPanel({ projectId, initialRenderJob, initialMusicTrack }: RenderPanelProps) {
   const [renderJob, setRenderJob] = useState<RenderJob | null>(initialRenderJob);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [musicTrack, setMusicTrack] = useState<ProjectMusicTrack>(initialMusicTrack);
   const renderStatus = useMemo(() => normalizeRenderStatus(renderJob), [renderJob]);
   const videoUrl = `/api/projects/${projectId}/render/stream`;
   const progressMessage = renderJob?.progressMessage ?? null;
@@ -65,6 +68,10 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
     setRenderJob(initialRenderJob);
     setErrorMessage(null);
   }, [initialRenderJob]);
+
+  useEffect(() => {
+    setMusicTrack(initialMusicTrack);
+  }, [initialMusicTrack]);
 
   useEffect(() => {
     if (renderStatus !== "rendering") {
@@ -101,7 +108,11 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
     setErrorMessage(null);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/render`, { method: "POST" });
+      const response = await fetch(`/api/projects/${projectId}/render`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ musicTrack }),
+      });
       const payload = (await response.json()) as RenderJobResponse;
 
       if (!response.ok) {
@@ -151,6 +162,21 @@ export function RenderPanel({ projectId, initialRenderJob }: RenderPanelProps) {
           No rendered video yet. Start a render to create the final MP4 from the current timeline.
         </p>
       ) : null}
+
+      <label style={{ display: "block", marginBottom: 12 }}>
+        <strong>Background music</strong>
+        <select
+          value={musicTrack}
+          onChange={(event) => setMusicTrack(event.target.value as ProjectMusicTrack)}
+          disabled={renderStatus === "rendering"}
+          style={{ display: "block", marginTop: 8 }}
+        >
+          <option value="subtle">Subtle</option>
+          <option value="dramatic">Dramatic</option>
+          <option value="neutral">Neutral</option>
+          <option value="none">None</option>
+        </select>
+      </label>
 
       <button
         type="button"

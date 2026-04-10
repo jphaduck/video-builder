@@ -261,7 +261,13 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         canBuildTimeline={canBuildTimeline}
       />
 
-      {timelineDraft ? <RenderPanel projectId={project.id} initialRenderJob={latestRenderJob} /> : null}
+      {timelineDraft ? (
+        <RenderPanel
+          projectId={project.id}
+          initialRenderJob={latestRenderJob}
+          initialMusicTrack={project.musicTrack ?? "subtle"}
+        />
+      ) : null}
 
       <ProjectShell
         isScriptApproved={hasApprovedDraft}

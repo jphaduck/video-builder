@@ -19,6 +19,7 @@ import { buildSceneOutline } from "@/modules/scripts/draft-utils";
 import { deleteTimelineDraft } from "@/modules/timeline/repository";
 import type {
   CreateProjectInput,
+  ProjectMusicTrack,
   ProjectRecord,
   ProjectStatus,
   ScriptDraftApprovalStatus,
@@ -71,6 +72,7 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
   const scriptDrafts = normalizeScriptDraftFromLegacy(project);
   const latestScriptDraftId = project.latestScriptDraftId ?? scriptDrafts.at(-1)?.id;
   const activeScriptDraftId = project.activeScriptDraftId ?? latestScriptDraftId;
+  const musicVolume = typeof project.musicVolume === "number" ? Math.min(Math.max(project.musicVolume, 0), 1) : 0.08;
 
   return {
     ...project,
@@ -78,6 +80,8 @@ function normalizeProject(project: ProjectRecord): ProjectRecord {
     activeScriptDraftId,
     latestScriptDraftId,
     approvedScriptDraftId: project.approvedScriptDraftId,
+    musicTrack: project.musicTrack ?? "subtle",
+    musicVolume,
     workflow: {
       scriptDraftIds: project.workflow?.scriptDraftIds ?? scriptDrafts.map((draft) => draft.id),
       sceneIds: project.workflow?.sceneIds ?? [],
@@ -592,6 +596,26 @@ export async function setProjectStatus(
             ? options.imagePlanApprovedAt ?? undefined
             : existing.workflow.imagePlanApprovedAt,
       },
+    };
+  });
+
+  return normalizeProject(updatedProject);
+}
+
+export async function saveMusicSettingsForProject(
+  projectId: string,
+  musicTrack: ProjectMusicTrack,
+  musicVolume?: number,
+): Promise<ProjectRecord> {
+  const updatedProject = await updateStoredProject(projectId, (project) => {
+    const existing = normalizeProject(project);
+
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      musicTrack,
+      musicVolume:
+        typeof musicVolume === "number" ? Math.min(Math.max(musicVolume, 0), 1) : existing.musicVolume ?? 0.08,
     };
   });
 

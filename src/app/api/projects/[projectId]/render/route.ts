@@ -6,8 +6,9 @@ import {
   jsonData,
   jsonError,
 } from "@/app/api/_utils";
-import { getProjectById } from "@/modules/projects/repository";
+import { getProjectById, saveMusicSettingsForProject } from "@/modules/projects/repository";
 import { enqueueRender, getJobStatus, getLatestJobForProject } from "@/modules/rendering/queue";
+import type { ProjectMusicTrack } from "@/types/project";
 
 type ProjectRenderRouteContext = {
   params: Promise<{ projectId: string }>;
@@ -40,7 +41,7 @@ export async function GET(_request: Request, { params }: ProjectRenderRouteConte
   }
 }
 
-export async function POST(_request: Request, { params }: ProjectRenderRouteContext) {
+export async function POST(request: Request, { params }: ProjectRenderRouteContext) {
   const { projectId } = await params;
   const { value: trimmedProjectId, response } = getRequiredUuidParam(
     projectId,
@@ -55,6 +56,33 @@ export async function POST(_request: Request, { params }: ProjectRenderRouteCont
     const project = await getProjectById(trimmedProjectId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
+    }
+
+    let musicTrack: ProjectMusicTrack | undefined;
+    try {
+      const rawBody = (await request.text()).trim();
+      if (rawBody) {
+        const parsedBody = JSON.parse(rawBody) as { musicTrack?: unknown };
+
+        if (parsedBody.musicTrack !== undefined) {
+          if (
+            parsedBody.musicTrack !== "subtle" &&
+            parsedBody.musicTrack !== "dramatic" &&
+            parsedBody.musicTrack !== "neutral" &&
+            parsedBody.musicTrack !== "none"
+          ) {
+            return jsonError("Invalid music track.", 400);
+          }
+
+          musicTrack = parsedBody.musicTrack;
+        }
+      }
+    } catch {
+      return jsonError("Invalid request body.", 400);
+    }
+
+    if (musicTrack) {
+      await saveMusicSettingsForProject(trimmedProjectId, musicTrack);
     }
 
     const jobId = await enqueueRender(trimmedProjectId);

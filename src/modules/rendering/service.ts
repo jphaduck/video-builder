@@ -11,6 +11,7 @@ import { RENDERING_DIR, RENDERS_DIR } from "@/modules/rendering/paths";
 import { saveRenderJob, updateRenderJob } from "@/modules/rendering/repository";
 import type { CaptionSegment } from "@/types/caption";
 import type { NarrationSceneAudio } from "@/types/narration";
+import type { ProjectMusicTrack } from "@/types/project";
 import type { Scene } from "@/types/scene";
 import type { AssetCandidate } from "@/modules/assets/types";
 import type { TimelineDraft } from "@/modules/timeline/types";
@@ -19,6 +20,7 @@ import type { RenderJob } from "@/modules/rendering/types";
 const RENDER_WIDTH = 1920;
 const RENDER_HEIGHT = 1080;
 const PLACEHOLDER_COLORS = ["#0f172a", "#1d4ed8", "#14532d", "#581c87", "#7c2d12", "#164e63"];
+const DEFAULT_MUSIC_VOLUME = 0.08;
 
 function resolveBundledFfmpegPath(): string {
   const platformFolder = `${process.platform}-${process.arch}`;
@@ -195,6 +197,52 @@ async function concatenateNarrationAudio(projectId: string, renderScenes: Render
   return outputPath;
 }
 
+function resolveAmbientMusicPath(track: Exclude<ProjectMusicTrack, "none">): string {
+  return path.join(process.cwd(), "public", "audio", `ambient-${track}.mp3`);
+}
+
+async function mixBackgroundMusic(
+  projectId: string,
+  narrationAudioPath: string,
+  musicTrack: Exclude<ProjectMusicTrack, "none">,
+  musicVolume: number,
+): Promise<string> {
+  const musicPath = resolveAmbientMusicPath(musicTrack);
+  const hasMusicFile = await ensureFileExists(musicPath);
+  if (!hasMusicFile) {
+    throw new Error(`Ambient music file missing for track "${musicTrack}".`);
+  }
+
+  await mkdir(RENDERING_DIR, { recursive: true });
+  const outputPath = path.join(RENDERING_DIR, `${projectId}-audio-mixed.mp3`);
+
+  await runFfmpeg(
+    ffmpeg()
+      .input(narrationAudioPath)
+      .input(musicPath)
+      .inputOptions(["-stream_loop", "-1"])
+      .complexFilter(
+        [
+          {
+            filter: "amix",
+            options: {
+              inputs: 2,
+              duration: "first",
+              weights: `1 ${musicVolume.toFixed(2)}`,
+            },
+            inputs: ["0:a", "1:a"],
+            outputs: "mixed",
+          },
+        ],
+        "mixed",
+      )
+      .outputOptions(["-y", "-c:a", "libmp3lame", "-q:a", "2"]),
+    outputPath,
+  );
+
+  return outputPath;
+}
+
 async function createSlideshowVideo(projectId: string, renderScenes: RenderSceneInput[], audioPath: string, srtPath: string): Promise<string> {
   await mkdir(RENDERING_DIR, { recursive: true });
   await mkdir(RENDERS_DIR, { recursive: true });
@@ -316,7 +364,14 @@ export async function renderProject(projectId: string, renderJobId?: string): Pr
     const renderScenes = await gatherRenderScenes(projectId, timelineDraft);
     await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Merging narration audio...");
     const srtPath = await writeSrtFile(projectId, [...timelineDraft.captionTrack.segments].sort((a, b) => a.startMs - b.startMs));
-    const audioPath = await concatenateNarrationAudio(projectId, renderScenes);
+    const narrationAudioPath = await concatenateNarrationAudio(projectId, renderScenes);
+    const selectedMusicTrack =
+      project.musicTrack && project.musicTrack !== "none" ? project.musicTrack : null;
+    const musicVolume =
+      typeof project.musicVolume === "number" ? Math.min(Math.max(project.musicVolume, 0), 1) : DEFAULT_MUSIC_VOLUME;
+    const audioPath = selectedMusicTrack
+      ? await mixBackgroundMusic(projectId, narrationAudioPath, selectedMusicTrack, musicVolume)
+      : narrationAudioPath;
     await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Assembling video...");
     await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Burning in captions...");
     const outputPath = await createSlideshowVideo(projectId, renderScenes, audioPath, srtPath);

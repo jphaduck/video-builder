@@ -58,6 +58,8 @@ export interface StoryDraftRecord {
   llmMeta?: LlmMeta;
 }
 
+export type ProjectMusicTrack = "subtle" | "dramatic" | "neutral" | "none";
+
 export interface Project {
   id: string;
   name: string;
@@ -70,6 +72,8 @@ export interface Project {
   approvedScriptDraftId?: string;
   latestScriptDraftId?: string;
   storyDraft?: StoryDraftRecord;
+  musicTrack?: ProjectMusicTrack;
+  musicVolume?: number;
   workflow: ProjectWorkflowRefs;
 }
 
