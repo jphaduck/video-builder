@@ -97,7 +97,7 @@ What exists:
   - Vitest smoke/service tests and GitHub Actions CI using `npm run validate`
   - standalone typecheck now regenerates Next route/page definitions with `next typegen` first, so stale partial `.next/types` output from interrupted builds does not break repo validation
   - Next.js build tracing is pinned to the repository root so production builds do not infer `/Users/jp` from a parent lockfile in the Codex workspace
-  - focused repository/service coverage now exercises high-risk project deletion cleanup, scene file persistence/order/error paths, render-job file persistence/cleanup, and timeline draft assembly/error paths
+  - focused repository/service coverage now exercises high-risk project deletion cleanup, scene/narration/caption file persistence behaviors, render-job file persistence/cleanup, and timeline draft assembly/error paths
   - reusable live script evaluation harness under `npm run eval:scripts`, with JSON reports that now calculate `passRate` from passed rows in `results`, `retryRate` from retry-triggered rows, and `retrySuccessRate` from successful retries
   - git now ignores generated artifacts across all `data/` workflow directories while tracking `.gitkeep` placeholders so the local folder structure remains intact
 
