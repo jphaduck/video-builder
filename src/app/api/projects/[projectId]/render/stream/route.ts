@@ -10,7 +10,7 @@ import {
 } from "@/app/api/_utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { resolveRenderOutputPath } from "@/modules/rendering/paths";
-import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
+import { getLatestJobForProject } from "@/modules/rendering/queue";
 
 type ProjectRenderStreamRouteContext = {
   params: Promise<{ projectId: string }>;
@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: ProjectRenderStreamRout
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
-    const job = await getLatestRenderJobForProject(trimmedProjectId);
+    const job = await getLatestJobForProject(trimmedProjectId);
     if (!job?.outputFilePath) {
       return jsonError("Rendered video not found.", 404);
     }

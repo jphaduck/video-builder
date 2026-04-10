@@ -5,7 +5,7 @@ import {
   jsonError,
 } from "@/app/api/_utils";
 import { getProjectById } from "@/modules/projects/repository";
-import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
+import { getLatestJobForProject } from "@/modules/rendering/queue";
 import type { RenderJob } from "@/modules/rendering/types";
 
 type ProjectRenderProgressRouteContext = {
@@ -49,7 +49,7 @@ export async function GET(request: Request, { params }: ProjectRenderProgressRou
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
-    const initialJob = await getLatestRenderJobForProject(trimmedProjectId);
+    const initialJob = await getLatestJobForProject(trimmedProjectId);
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream<Uint8Array>({
@@ -89,7 +89,7 @@ export async function GET(request: Request, { params }: ProjectRenderProgressRou
               return;
             }
 
-            cachedJob = await getLatestRenderJobForProject(trimmedProjectId);
+            cachedJob = await getLatestJobForProject(trimmedProjectId);
           } catch {
             controller.enqueue(
               encoder.encode(serializeSseEvent(getProgressPayload("error", "Failed to read render progress.", null))),

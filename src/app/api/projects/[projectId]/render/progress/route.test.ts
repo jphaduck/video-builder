@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockedGetProjectById = vi.fn();
-const mockedGetLatestRenderJobForProject = vi.fn();
+const mockedGetLatestJobForProject = vi.fn();
 const validProjectId = "11111111-1111-4111-8111-111111111111";
 const missingProjectId = "22222222-2222-4222-8222-222222222222";
 
@@ -9,15 +9,15 @@ vi.mock("@/modules/projects/repository", () => ({
   getProjectById: (...args: unknown[]) => mockedGetProjectById(...args),
 }));
 
-vi.mock("@/modules/rendering/repository", () => ({
-  getLatestRenderJobForProject: (...args: unknown[]) => mockedGetLatestRenderJobForProject(...args),
+vi.mock("@/modules/rendering/queue", () => ({
+  getLatestJobForProject: (...args: unknown[]) => mockedGetLatestJobForProject(...args),
 }));
 
 describe("GET /api/projects/[projectId]/render/progress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedGetProjectById.mockResolvedValue({ id: validProjectId });
-    mockedGetLatestRenderJobForProject.mockResolvedValue({
+    mockedGetLatestJobForProject.mockResolvedValue({
       id: "render-1",
       projectId: validProjectId,
       timelineDraftId: "timeline-1",
@@ -60,7 +60,7 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
     expect(mockedGetProjectById).not.toHaveBeenCalled();
-    expect(mockedGetLatestRenderJobForProject).not.toHaveBeenCalled();
+    expect(mockedGetLatestJobForProject).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the project does not exist", async () => {
@@ -76,7 +76,7 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
   });
 
   it("returns 500 for unexpected preflight failures", async () => {
-    mockedGetLatestRenderJobForProject.mockRejectedValue(new Error("boom"));
+    mockedGetLatestJobForProject.mockRejectedValue(new Error("boom"));
 
     const { GET } = await import("@/app/api/projects/[projectId]/render/progress/route");
     const response = await GET(new Request("http://localhost/render/progress"), {

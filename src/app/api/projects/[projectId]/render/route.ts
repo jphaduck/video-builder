@@ -7,8 +7,7 @@ import {
   jsonError,
 } from "@/app/api/_utils";
 import { getProjectById } from "@/modules/projects/repository";
-import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
-import { startRenderForProject } from "@/modules/rendering/service";
+import { enqueueRender, getJobStatus, getLatestJobForProject } from "@/modules/rendering/queue";
 
 type ProjectRenderRouteContext = {
   params: Promise<{ projectId: string }>;
@@ -31,10 +30,10 @@ export async function GET(_request: Request, { params }: ProjectRenderRouteConte
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
-    const job = await getLatestRenderJobForProject(trimmedProjectId);
+    const job = await getLatestJobForProject(trimmedProjectId);
     return jsonData({
       job,
-      renderStatus: job ? (job.status === "pending" ? "rendering" : job.status) : "idle",
+      renderStatus: job ? (job.status === "queued" ? "rendering" : job.status) : "idle",
     });
   } catch {
     return jsonError(INTERNAL_SERVER_ERROR_MESSAGE, 500);
@@ -58,8 +57,10 @@ export async function POST(_request: Request, { params }: ProjectRenderRouteCont
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
-    const job = await startRenderForProject(trimmedProjectId);
-    return jsonData(job, { status: 202 });
+    const jobId = await enqueueRender(trimmedProjectId);
+    const job = await getJobStatus(jobId);
+
+    return jsonData(job ? { ...job, jobId } : { jobId, status: "queued" }, { status: 202 });
   } catch (error) {
     const notFoundMessage = isPrefixedError(error, ["Project not found:"]);
     if (notFoundMessage) {

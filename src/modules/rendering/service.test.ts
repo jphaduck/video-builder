@@ -28,7 +28,7 @@ type MockRenderJob = {
   id: string;
   projectId: string;
   timelineDraftId: string;
-  status: "pending" | "rendering" | "complete" | "error";
+  status: "queued" | "rendering" | "complete" | "error";
   outputFilePath: string | null;
   errorMessage: string | null;
   progressMessage: string | null;

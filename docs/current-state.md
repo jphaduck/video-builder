@@ -73,10 +73,12 @@ What exists:
   - building a timeline draft moves the project to `timeline_ready`
 - rendering workflow:
   - file-backed render job metadata stored in `data/rendering/{renderJobId}.json`
+  - file-backed render queue state stored in `data/rendering/queue.json`
   - temp render artifacts stored in `data/rendering/`, including merged narration audio and burned-caption `.srt`
   - final MP4 exports written to `data/renders/{projectId}.mp4`
   - FFmpeg-based slideshow rendering that holds each scene still for its narration duration, merges per-scene narration into one audio track, and burns captions directly into the video
   - Sharp-generated 1920x1080 placeholder images when no approved still exists for a scene
+  - render requests are enqueued and processed by a lightweight file-backed worker instead of a floating in-process promise, so queued/running jobs survive process restarts
   - async render start/status route at `/api/projects/[projectId]/render`
   - SSE progress route at `/api/projects/[projectId]/render/progress` for live render status and stage messages
   - browser video streaming route at `/api/projects/[projectId]/render/stream`
@@ -103,7 +105,6 @@ What exists:
 
 What does not exist yet:
 - editable timeline controls
-- background jobs/queueing
 - production storage/database backend
 - user authentication
 - music/background audio layer in the render pipeline

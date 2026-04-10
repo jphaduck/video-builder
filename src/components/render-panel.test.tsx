@@ -24,7 +24,7 @@ function createRenderJob(overrides: Partial<RenderJob> = {}): RenderJob {
     id: "render-1",
     projectId: "project-1",
     timelineDraftId: "timeline-1",
-    status: "pending",
+    status: "queued",
     outputFilePath: null,
     errorMessage: null,
     progressMessage: "Queued render job.",

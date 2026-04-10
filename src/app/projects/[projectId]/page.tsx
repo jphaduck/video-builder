@@ -13,7 +13,7 @@ import { getAssetCandidatesForProject } from "@/modules/assets/repository";
 import { markCaptionTrackStale } from "@/modules/captions/service";
 import { getCaptionTrack } from "@/modules/captions/repository";
 import { getNarrationTrack } from "@/modules/narration/repository";
-import { getLatestRenderJobForProject } from "@/modules/rendering/repository";
+import { getLatestJobForProject } from "@/modules/rendering/queue";
 import { countWords } from "@/modules/scripts/draft-utils";
 import { getProjectById } from "@/modules/projects/repository";
 import { getScenesForProject } from "@/modules/scenes/repository";
@@ -63,7 +63,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const narrationTrack = activeNarrationTrackId ? await getNarrationTrack(activeNarrationTrackId) : null;
   let captionTrack = activeCaptionTrackId ? await getCaptionTrack(activeCaptionTrackId) : null;
   const timelineDraft = await getTimelineDraftForProject(project.id);
-  const latestRenderJob = await getLatestRenderJobForProject(project.id);
+  const latestRenderJob = await getLatestJobForProject(project.id);
 
   if (
     captionTrack &&

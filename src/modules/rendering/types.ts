@@ -1,4 +1,4 @@
-export type RenderJobStatus = "pending" | "rendering" | "complete" | "error";
+export type RenderJobStatus = "queued" | "rendering" | "complete" | "error";
 
 export interface RenderJob {
   id: string;

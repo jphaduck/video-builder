@@ -206,6 +206,11 @@
 - Why: Route behavior had drifted between success booleans, plain errors, and exposed internal exception text, which made the UI harder to reason about and left edge cases inconsistent.
 - Impact: Project-scoped routes now validate non-empty IDs up front, use `400` for bad input, `404` for missing projects/resources, and generic `500` responses for unexpected failures without leaking internals.
 
+## 2026-04-09 - Render execution now goes through a file-backed queue
+- Decision: Replace the render route's floating background promise with a file-backed queue in `data/rendering/queue.json`, plus a lightweight worker that processes queued jobs one at a time.
+- Why: The old approach could lose an in-flight render on process restart and had no persisted record of queued/running work beyond the last render job file.
+- Impact: Render starts now enqueue durable jobs, duplicate active renders per project are prevented, and worker restarts can resume queued/running jobs without changing the render review UI.
+
 ## 2026-04-09 - Generated workflow artifacts stay local and out of Git
 - Decision: Ignore generated files under `data/projects`, `data/scenes`, `data/assets`, `data/narration`, `data/captions`, `data/timeline`, `data/rendering`, and `data/renders`, while tracking only `.gitkeep` placeholders.
 - Why: Project JSON, media outputs, subtitles, and render artifacts are runtime data, not source code, and they should not be reviewed or committed accidentally.

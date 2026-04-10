@@ -8,7 +8,7 @@ import { captionSegmentsToSrt } from "@/modules/captions/srt";
 import { getProjectById, saveRenderJobForProject, setProjectStatus } from "@/modules/projects/repository";
 import { getTimelineDraftForProject } from "@/modules/timeline/service";
 import { RENDERING_DIR, RENDERS_DIR } from "@/modules/rendering/paths";
-import { getLatestRenderJobForProject, saveRenderJob, updateRenderJob } from "@/modules/rendering/repository";
+import { saveRenderJob, updateRenderJob } from "@/modules/rendering/repository";
 import type { CaptionSegment } from "@/types/caption";
 import type { NarrationSceneAudio } from "@/types/narration";
 import type { Scene } from "@/types/scene";
@@ -265,7 +265,12 @@ async function updateRenderJobState(
   }));
 }
 
-export async function createRenderJob(projectId: string, timelineDraftId: string): Promise<RenderJob> {
+export async function createRenderJob(
+  projectId: string,
+  timelineDraftId: string,
+  status: RenderJob["status"] = "queued",
+  progressMessage: string | null = "Queued for render processing.",
+): Promise<RenderJob> {
   const project = await getProjectById(projectId);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
@@ -276,10 +281,10 @@ export async function createRenderJob(projectId: string, timelineDraftId: string
     id: randomUUID(),
     projectId,
     timelineDraftId,
-    status: "rendering",
+    status,
     outputFilePath: null,
     errorMessage: null,
-    progressMessage: "Preparing scene images...",
+    progressMessage,
     createdAt: now,
     updatedAt: now,
   };
@@ -289,7 +294,7 @@ export async function createRenderJob(projectId: string, timelineDraftId: string
   return job;
 }
 
-export async function startRenderForProject(projectId: string): Promise<RenderJob> {
+export async function renderProject(projectId: string, renderJobId?: string): Promise<string> {
   const project = await getProjectById(projectId);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
@@ -300,53 +305,30 @@ export async function startRenderForProject(projectId: string): Promise<RenderJo
     throw new Error("Timeline draft not found for this project. Build the timeline before rendering.");
   }
 
-  const latestRenderJob = await getLatestRenderJobForProject(projectId);
-  if (latestRenderJob && latestRenderJob.status === "rendering") {
-    return latestRenderJob;
-  }
-
-  const job = await createRenderJob(projectId, timelineDraft.id);
-  void renderProject(projectId).catch((error) => {
-    console.error(`Render failed for project ${projectId}:`, error);
-  });
-  return job;
-}
-
-export async function renderProject(projectId: string): Promise<string> {
-  const project = await getProjectById(projectId);
-  if (!project) {
-    throw new Error(`Project not found: ${projectId}`);
-  }
-
-  const timelineDraft = await getTimelineDraftForProject(projectId);
-  if (!timelineDraft) {
-    throw new Error("Timeline draft not found for this project. Build the timeline before rendering.");
-  }
-
-  const renderJobId = project.workflow.renderJobIds.at(-1);
-  if (!renderJobId) {
+  const activeRenderJobId = renderJobId ?? project.workflow.renderJobIds.at(-1);
+  if (!activeRenderJobId) {
     throw new Error("Render job not found for this project.");
   }
 
-  await updateRenderJobState(renderJobId, "rendering", null, null, "Preparing scene images...");
+  await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Preparing scene images...");
 
   try {
     const renderScenes = await gatherRenderScenes(projectId, timelineDraft);
-    await updateRenderJobState(renderJobId, "rendering", null, null, "Merging narration audio...");
+    await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Merging narration audio...");
     const srtPath = await writeSrtFile(projectId, [...timelineDraft.captionTrack.segments].sort((a, b) => a.startMs - b.startMs));
     const audioPath = await concatenateNarrationAudio(projectId, renderScenes);
-    await updateRenderJobState(renderJobId, "rendering", null, null, "Assembling video...");
-    await updateRenderJobState(renderJobId, "rendering", null, null, "Burning in captions...");
+    await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Assembling video...");
+    await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Burning in captions...");
     const outputPath = await createSlideshowVideo(projectId, renderScenes, audioPath, srtPath);
     const relativeOutputPath = path.relative(process.cwd(), outputPath);
 
-    await updateRenderJobState(renderJobId, "rendering", null, null, "Finalising export...");
-    await updateRenderJobState(renderJobId, "complete", relativeOutputPath, null, "Render complete.");
+    await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Finalising export...");
+    await updateRenderJobState(activeRenderJobId, "complete", relativeOutputPath, null, "Render complete.");
     await setProjectStatus(projectId, "rendered");
     return relativeOutputPath;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Render failed.";
-    await updateRenderJobState(renderJobId, "error", null, message, "Render failed.");
+    await updateRenderJobState(activeRenderJobId, "error", null, message, "Render failed.");
     throw error;
   }
 }

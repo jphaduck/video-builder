@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
 
 const mockedGetProjectById = vi.fn();
-const mockedGetLatestRenderJobForProject = vi.fn();
+const mockedGetLatestJobForProject = vi.fn();
 const mockedStat = vi.fn();
 const mockedCreateReadStream = vi.fn();
 const validProjectId = "11111111-1111-4111-8111-111111111111";
@@ -12,8 +12,8 @@ vi.mock("@/modules/projects/repository", () => ({
   getProjectById: (...args: unknown[]) => mockedGetProjectById(...args),
 }));
 
-vi.mock("@/modules/rendering/repository", () => ({
-  getLatestRenderJobForProject: (...args: unknown[]) => mockedGetLatestRenderJobForProject(...args),
+vi.mock("@/modules/rendering/queue", () => ({
+  getLatestJobForProject: (...args: unknown[]) => mockedGetLatestJobForProject(...args),
 }));
 
 vi.mock("node:fs", () => ({
@@ -34,7 +34,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedGetProjectById.mockResolvedValue({ id: validProjectId });
-    mockedGetLatestRenderJobForProject.mockResolvedValue({
+    mockedGetLatestJobForProject.mockResolvedValue({
       id: "render-1",
       outputFilePath: `data/renders/${validProjectId}.mp4`,
     });
@@ -72,7 +72,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
     expect(mockedGetProjectById).not.toHaveBeenCalled();
-    expect(mockedGetLatestRenderJobForProject).not.toHaveBeenCalled();
+    expect(mockedGetLatestJobForProject).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the project is missing", async () => {
@@ -88,7 +88,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
   });
 
   it("returns 400 when the persisted render output path escapes the renders directory", async () => {
-    mockedGetLatestRenderJobForProject.mockResolvedValue({
+    mockedGetLatestJobForProject.mockResolvedValue({
       id: "render-1",
       outputFilePath: "../secrets.mp4",
     });
