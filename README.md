@@ -20,7 +20,8 @@ All 5 milestones are complete. The full generation pipeline works end to end:
 
 What is implemented:
 
-* Project persistence with file-backed JSON storage
+* Project persistence with SQLite-backed local storage
+* GitHub OAuth authentication with NextAuth protecting project pages and project API routes
 * Two-stage story generation (beat outline → full cinematic script) with validation, draft versioning, approve/reject gating, and manual editing
 * Scene planning with per-scene image prompt generation, regeneration, and approval
 * Still image generation via DALL-E 3 with 2 candidates per scene and a selection/approval flow
@@ -33,8 +34,7 @@ What is implemented:
 
 What remains for a production-ready version:
 
-* Replace file-based JSON storage with a production database
-* User authentication
+* Replace SQLite plus the remaining file-backed workflow stores with a production database/storage backend
 * Replace placeholder ambient audio with real licensed music tracks
 * UI polish and improved error messaging
 
@@ -46,10 +46,14 @@ What remains for a production-ready version:
    npm install
    ```
 
-2. Add your OpenAI API key to `.env.local`:
+2. Add your environment variables to `.env.local`:
 
    ```
    OPENAI_API_KEY=your_key_here
+   GITHUB_CLIENT_ID=your_github_oauth_app_client_id
+   GITHUB_CLIENT_SECRET=your_github_oauth_app_client_secret
+   NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
+   NEXTAUTH_URL=http://localhost:3000
    ```
 
 3. Start dev server:

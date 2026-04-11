@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
+import { mockAuth, mockUnauthenticated } from "@/test/auth-mock";
 
 const mockedGetProjectById = vi.fn();
 const mockedGetLatestJobForProject = vi.fn();
@@ -32,7 +33,9 @@ vi.mock("node:fs/promises", () => ({
 
 describe("GET /api/projects/[projectId]/render/stream", () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
+    mockAuth();
     mockedGetProjectById.mockResolvedValue({ id: validProjectId });
     mockedGetLatestJobForProject.mockResolvedValue({
       id: "render-1",
@@ -85,6 +88,20 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Project not found." });
+  });
+
+  it("returns 401 when the request is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { GET } = await import("@/app/api/projects/[projectId]/render/stream/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ projectId: validProjectId }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the persisted render output path escapes the renders directory", async () => {

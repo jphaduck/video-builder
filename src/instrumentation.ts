@@ -3,9 +3,9 @@ export async function register() {
     return;
   }
 
-  const { runMigration } = await import("@/lib/db");
-  await runMigration();
-
-  const { startRenderWorker } = await import("@/modules/rendering/worker");
-  startRenderWorker();
+  const loadServerStartup = new Function(
+    'return import("./server-startup")',
+  ) as () => Promise<typeof import("./server-startup")>;
+  const { runServerStartup } = await loadServerStartup();
+  await runServerStartup();
 }

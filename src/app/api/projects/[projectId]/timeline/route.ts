@@ -6,6 +6,7 @@ import {
   jsonData,
   jsonError,
 } from "@/app/api/_utils";
+import { requireProjectRouteAuth } from "@/app/api/projects/_auth";
 import { getProjectById, setProjectStatus } from "@/modules/projects/repository";
 import { getTimelineDraftForProject, buildTimelineDraft } from "@/modules/timeline/service";
 
@@ -22,6 +23,11 @@ export async function GET(_request: Request, { params }: ProjectTimelineRouteCon
   );
   if (response || !trimmedProjectId) {
     return response ?? jsonError("Invalid project ID.", 400);
+  }
+
+  const authResult = await requireProjectRouteAuth();
+  if (authResult.response) {
+    return authResult.response;
   }
 
   try {
@@ -46,6 +52,11 @@ export async function POST(_request: Request, { params }: ProjectTimelineRouteCo
   );
   if (response || !trimmedProjectId) {
     return response ?? jsonError("Invalid project ID.", 400);
+  }
+
+  const authResult = await requireProjectRouteAuth();
+  if (authResult.response) {
+    return authResult.response;
   }
 
   try {

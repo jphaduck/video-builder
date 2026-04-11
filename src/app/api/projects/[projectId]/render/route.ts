@@ -6,6 +6,7 @@ import {
   jsonData,
   jsonError,
 } from "@/app/api/_utils";
+import { requireProjectRouteAuth } from "@/app/api/projects/_auth";
 import { getProjectById, saveMusicSettingsForProject } from "@/modules/projects/repository";
 import { enqueueRender, getJobStatus, getLatestJobForProject } from "@/modules/rendering/queue";
 import type { ProjectMusicTrack } from "@/types/project";
@@ -23,6 +24,11 @@ export async function GET(_request: Request, { params }: ProjectRenderRouteConte
   );
   if (response || !trimmedProjectId) {
     return response ?? jsonError("Invalid project ID.", 400);
+  }
+
+  const authResult = await requireProjectRouteAuth();
+  if (authResult.response) {
+    return authResult.response;
   }
 
   try {
@@ -50,6 +56,11 @@ export async function POST(request: Request, { params }: ProjectRenderRouteConte
   );
   if (response || !trimmedProjectId) {
     return response ?? jsonError("Invalid project ID.", 400);
+  }
+
+  const authResult = await requireProjectRouteAuth();
+  if (authResult.response) {
+    return authResult.response;
   }
 
   try {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockAuth, mockUnauthenticated } from "@/test/auth-mock";
 
 const mockedGetProjectById = vi.fn();
 const mockedSaveMusicSettingsForProject = vi.fn();
@@ -23,7 +24,9 @@ describe("/api/projects/[projectId]/render", () => {
   const job = { id: "render-1", projectId: validProjectId, timelineDraftId: "timeline-1", status: "queued" };
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
+    mockAuth();
     mockedGetProjectById.mockResolvedValue({ id: validProjectId });
     mockedSaveMusicSettingsForProject.mockResolvedValue({ id: validProjectId, musicTrack: "subtle" });
     mockedGetLatestJobForProject.mockResolvedValue(job);
@@ -80,6 +83,20 @@ describe("/api/projects/[projectId]/render", () => {
     await expect(response.json()).resolves.toEqual({ error: "Project not found." });
   });
 
+  it("returns 401 when GET is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { GET } = await import("@/app/api/projects/[projectId]/render/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ projectId: validProjectId }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
+    expect(mockedGetProjectById).not.toHaveBeenCalled();
+  });
+
   it("returns 500 for unexpected GET failures", async () => {
     mockedGetLatestJobForProject.mockRejectedValue(new Error("boom"));
 
@@ -118,6 +135,20 @@ describe("/api/projects/[projectId]/render", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Invalid project ID." });
     expect(mockedGetProjectById).not.toHaveBeenCalled();
+    expect(mockedEnqueueRender).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when POST is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { POST } = await import("@/app/api/projects/[projectId]/render/route");
+    const response = await POST(new Request("http://localhost", { method: "POST" }), {
+      params: Promise.resolve({ projectId: validProjectId }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
     expect(mockedEnqueueRender).not.toHaveBeenCalled();
   });
 

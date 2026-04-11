@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockAuth, mockUnauthenticated } from "@/test/auth-mock";
 
 const mockedDeleteProjectById = vi.fn();
 const validProjectId = "11111111-1111-4111-8111-111111111111";
@@ -10,7 +11,9 @@ vi.mock("@/modules/projects/repository", () => ({
 
 describe("DELETE /api/projects/[projectId]", () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
+    mockAuth();
     mockedDeleteProjectById.mockResolvedValue(undefined);
   });
 
@@ -33,6 +36,20 @@ describe("DELETE /api/projects/[projectId]", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Project ID is required." });
+  });
+
+  it("returns 401 when the request is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { DELETE } = await import("@/app/api/projects/[projectId]/route");
+    const response = await DELETE({} as never, {
+      params: Promise.resolve({ projectId: validProjectId }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
+    expect(mockedDeleteProjectById).not.toHaveBeenCalled();
   });
 
   it("returns 400 when projectId is not a UUID", async () => {

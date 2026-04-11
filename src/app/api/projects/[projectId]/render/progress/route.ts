@@ -4,6 +4,7 @@ import {
   getRequiredUuidParam,
   jsonError,
 } from "@/app/api/_utils";
+import { requireProjectRouteAuth } from "@/app/api/projects/_auth";
 import { getProjectById } from "@/modules/projects/repository";
 import { getLatestJobForProject } from "@/modules/rendering/queue";
 import type { RenderJob } from "@/modules/rendering/types";
@@ -41,6 +42,11 @@ export async function GET(request: Request, { params }: ProjectRenderProgressRou
   );
   if (response || !trimmedProjectId) {
     return response ?? jsonError("Invalid project ID.", 400);
+  }
+
+  const authResult = await requireProjectRouteAuth();
+  if (authResult.response) {
+    return authResult.response;
   }
 
   try {

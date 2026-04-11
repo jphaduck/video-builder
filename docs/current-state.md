@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-All 6 roadmap milestones are complete. The next phase is production hardening: storage, auth, UI polish, stronger error handling, and better runtime ergonomics.
+All 6 roadmap milestones are complete. The next phase is production hardening: broader storage migration, per-user ownership, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created
@@ -14,6 +14,7 @@ What exists:
   - list saved projects at `/projects`
   - load project detail at `/projects/[projectId]`
   - delete a project from `/projects`, including cleanup of its persisted derived artifacts
+  - GitHub OAuth authentication via NextAuth protects project pages and project APIs, with a signed-in header showing the current user plus sign-in/sign-out controls
 - script workflow for saved projects:
   - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
   - modular script service for story draft generation
@@ -105,18 +106,17 @@ What exists:
 
 What does not exist yet:
 - editable timeline controls
-- production storage/database backend
-- user authentication
+- per-user project ownership or user-scoped queries
+- migrate scene, asset, narration, caption, timeline, and render stores off per-file JSON
 - replace bundled placeholder ambient tracks with production-ready licensed music
 - broader UI polish and error-handling improvements
-- migrate scene, asset, narration, caption, timeline, and render stores off per-file JSON
 
 Current priority:
-Polish the now-complete pipeline for production use, starting with storage/auth foundations, better review UX, and more production-ready rendering ergonomics.
+Polish the now-complete pipeline for production use, starting with per-user ownership on top of the new auth layer, broader storage migration, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
 1. replace the remaining per-file workflow stores with database-backed persistence
-2. add authentication and per-user project ownership
+2. add per-user project ownership and user-scoped project queries
 3. improve UI polish, real-time render progress, and failure recovery
 
 Files to read first next session:

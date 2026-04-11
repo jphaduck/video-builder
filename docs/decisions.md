@@ -230,3 +230,8 @@
 - Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
 - Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.
 - Impact: Planning and status docs should describe the app as feature-complete for v1 workflow, with the next phase focused on production hardening rather than missing core stages.
+
+## 2026-04-11 - Authentication uses NextAuth with GitHub OAuth first
+- Decision: Add NextAuth with GitHub OAuth as the first authentication mechanism, protect project pages with middleware, and require an authenticated session in project API route handlers.
+- Why: The app had no access control at all, which meant any visitor could load or mutate project state if they knew the URL.
+- Impact: Users must sign in before using project workflows, route tests now mock `auth()` explicitly, and the next access-control task is per-user project ownership rather than basic authentication.
