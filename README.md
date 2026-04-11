@@ -14,7 +14,7 @@ The app is designed to:
 
 ## Current status
 
-All 6 roadmap milestones are complete. The full generation pipeline works end to end:
+All 5 milestones are complete. The full generation pipeline works end to end:
 
 **Script** → **Scenes** → **Images** → **Narration** → **Captions** → **Timeline** → **Render**
 
@@ -27,14 +27,15 @@ What is implemented:
 * Per-scene narration via OpenAI TTS with regenerate and approve controls
 * Caption generation via Whisper with inline text and timing editing
 * Timeline assembly with per-scene duration and caption preview
-* Video render pipeline using FFmpeg — produces a real MP4 with burned-in captions and merged narration audio
+* Video render pipeline using FFmpeg with file-backed job queue — produces a real MP4 with burned-in captions, merged narration, and optional ambient music
 * Real-time render progress via Server-Sent Events
+* 123 tests across 27 test files
 
 What remains for a production-ready version:
 
 * Replace file-based JSON storage with a production database
 * User authentication
-* Music/background audio layer in the render pipeline
+* Replace placeholder ambient audio with real licensed music tracks
 * UI polish and improved error messaging
 
 ## Run locally
@@ -75,3 +76,4 @@ What remains for a production-ready version:
 * All generation steps use real OpenAI APIs (GPT-4o, DALL-E 3, TTS, Whisper).
 * Storage is currently local/file-backed. A production backend is planned.
 * FFmpeg must be available on the host system for rendering to work.
+* Ambient audio files in public/audio/ are sine-wave placeholders — replace with real music.
