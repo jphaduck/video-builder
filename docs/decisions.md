@@ -221,6 +221,11 @@
 - Why: Project JSON, media outputs, subtitles, and render artifacts are runtime data, not source code, and they should not be reviewed or committed accidentally.
 - Impact: Local workflow data stays on disk for development, but Git history remains clean and free of generated assets.
 
+## 2026-04-11 - Project storage now uses SQLite with JSON-blob rows
+- Decision: Replace per-project JSON files with a SQLite database at `data/studio.db`, storing each project record as a full JSON blob in a `projects` table.
+- Why: The file-per-project approach was easy to start with, but it does not provide atomic concurrent updates or even basic query/indexing semantics for a multi-user app.
+- Impact: The project-domain repository keeps the same interface, existing project JSON files are migrated into SQLite on startup, and future storage work can focus on the remaining per-file workflow artifacts instead of projects first.
+
 ## 2026-04-08 - Planning now treats the pipeline as five completed product milestones
 - Decision: Collapse the internal milestone view into five completed product milestones: persistence, story/review, scene/image planning, voice/captions, and timeline/render.
 - Why: The source now supports the full pipeline end to end, and the older six-step engineering breakdown was making README and planning docs sound less complete than the actual product.

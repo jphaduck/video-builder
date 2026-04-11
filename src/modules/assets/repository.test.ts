@@ -8,21 +8,10 @@ import type { AssetCandidate } from "@/modules/assets/types";
 const originalCwd = process.cwd();
 
 let tempDir = "";
+const mockedGetProject = vi.fn();
 
 vi.mock("@/lib/projects", () => ({
-  getProject: async (projectId: string) => {
-    try {
-      const filePath = path.join(tempDir, "data", "projects", `${projectId}.json`);
-      const raw = await readFile(filePath, "utf8");
-      return JSON.parse(raw) as Project;
-    } catch (error) {
-      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-        return null;
-      }
-
-      throw error;
-    }
-  },
+  getProject: (...args: unknown[]) => mockedGetProject(...args),
 }));
 
 async function loadModules() {
@@ -79,6 +68,7 @@ function createAssetCandidate(imageFilePath: string): AssetCandidate {
 }
 
 beforeEach(async () => {
+  vi.clearAllMocks();
   tempDir = await mkdtemp(path.join(os.tmpdir(), "asset-repo-test-"));
   process.chdir(tempDir);
 });
@@ -95,10 +85,8 @@ describe("asset repository persistence", () => {
     const { assets } = await loadModules();
     const imageFilePath = await assets.saveAssetImageFile("asset-1", Buffer.from("png-bytes"));
     const candidate = createAssetCandidate(imageFilePath);
-    const projectFilePath = path.join(tempDir, "data", "projects", "project-1.json");
 
-    await mkdir(path.dirname(projectFilePath), { recursive: true });
-    await writeFile(projectFilePath, JSON.stringify(createProject(candidate.id), null, 2), "utf8");
+    mockedGetProject.mockResolvedValue(createProject(candidate.id));
     await assets.saveAssetCandidate(candidate);
 
     expect(await assets.getAssetCandidate(candidate.id)).toEqual(candidate);

@@ -3,6 +3,9 @@ export async function register() {
     return;
   }
 
+  const { runMigration } = await import("@/lib/db");
+  await runMigration();
+
   const { startRenderWorker } = await import("@/modules/rendering/worker");
   startRenderWorker();
 }

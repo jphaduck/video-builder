@@ -1,4 +1,4 @@
-import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,9 +66,9 @@ afterEach(async () => {
 describe("projects repository", () => {
   it("deletes the stored project and all derived artifacts", async () => {
     const project = createProject();
-    const filePath = path.join(tempDir, "data", "projects", `${project.id}.json`);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, JSON.stringify(project, null, 2), "utf8");
+    const databasePath = path.join(tempDir, "data", "studio.db");
+    const { saveProject } = await import("@/lib/projects");
+    await saveProject(project);
 
     const { deleteProjectById } = await loadRepository();
     await deleteProjectById(project.id);
@@ -81,7 +81,7 @@ describe("projects repository", () => {
     expect(mockedDeleteTimelineDraft).toHaveBeenCalledWith("project-1");
     expect(mockedListRenderJobs).toHaveBeenCalledWith("project-1");
     expect(mockedDeleteRenderJob).toHaveBeenCalledWith("render-1");
-    await expect(access(filePath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(databasePath)).resolves.toBeUndefined();
   });
 
   it("throws when deleting a missing project", async () => {

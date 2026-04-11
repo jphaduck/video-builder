@@ -8,7 +8,7 @@ What exists:
 - GitHub connected to ChatGPT
 - implementation-ready planning docs
 - Next.js + TypeScript app scaffold with App Router
-- persistent local project storage using per-project JSON files in `data/projects/{projectId}.json`
+- persistent local project storage in SQLite at `data/studio.db`, with each project stored as a JSON blob row in the `projects` table
 - working project flows:
   - create project from `/projects/new`
   - list saved projects at `/projects`
@@ -109,12 +109,13 @@ What does not exist yet:
 - user authentication
 - replace bundled placeholder ambient tracks with production-ready licensed music
 - broader UI polish and error-handling improvements
+- migrate scene, asset, narration, caption, timeline, and render stores off per-file JSON
 
 Current priority:
 Polish the now-complete pipeline for production use, starting with storage/auth foundations, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
-1. replace local file persistence with a production storage backend
+1. replace the remaining per-file workflow stores with database-backed persistence
 2. add authentication and per-user project ownership
 3. improve UI polish, real-time render progress, and failure recovery
 

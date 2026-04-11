@@ -28,6 +28,9 @@ pnpm-debug.log*
 next-env.d.ts
 
 # local file storage
+data/studio.db
+data/studio.db-shm
+data/studio.db-wal
 data/projects/*
 data/scenes/*
 data/assets/*
