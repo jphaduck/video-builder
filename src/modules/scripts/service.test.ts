@@ -158,6 +158,18 @@ describe("generateStoryDraft", () => {
 
     expect(outline.length).toBeGreaterThan(0);
     expect(outline[0]).toContain("You face beat 1");
+    expect(createCompletion.mock.calls[0]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "system",
+          content: expect.stringContaining("You must return between 14 and 18 beats."),
+        }),
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("Returning fewer than 14 is a failure."),
+        }),
+      ]),
+    });
   });
 
   it("generateBeatOutline throws when fewer than 8 beats are returned", async () => {
@@ -245,6 +257,7 @@ describe("generateStoryDraft", () => {
       ]),
     });
     expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      max_tokens: 4000,
       messages: expect.arrayContaining([
         expect.objectContaining({
           role: "user",
@@ -289,6 +302,26 @@ describe("generateStoryDraft", () => {
         expect.objectContaining({
           role: "user",
           content: expect.stringContaining("Target: at least 650 words and 8 paragraphs."),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(
+            "Before you finish, count the words in your expanded draft. If the total is below 650, you must continue writing.",
+          ),
+        }),
+      ]),
+    });
+    expect(createCompletion.mock.calls[2]?.[0]).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(
+            "Your expanded draft must have more paragraphs than the version you are expanding.",
+          ),
         }),
       ]),
     });

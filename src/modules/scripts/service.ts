@@ -11,6 +11,9 @@ Use the plot notes as your source.
 Do not write narration.
 Each beat must identify who is involved, what is happening, and what is at stake.
 Keep the beats chronological.
+You must return between 14 and 18 beats.
+Returning fewer than 14 beats is a failure.
+If the plot notes do not have 14 distinct events, infer connecting beats from the premise and theme.
 `.trim();
 const SHORT_SCRIPT_ERROR = "OpenAI response script is too short for target runtime.";
 const RETRY_SHORT_SCRIPT_ERROR = "Retry draft is still too short for target runtime.";
@@ -133,7 +136,7 @@ function hasEchoedInput(output: string, input: StoryGenerationInput): boolean {
 }
 
 function getTargetBeatCount(input: StoryGenerationInput): number {
-  return Math.min(20, Math.max(12, input.targetRuntimeMin * 2));
+  return Math.min(18, Math.max(14, input.targetRuntimeMin * 2));
 }
 
 function getMinimumNarrativeWordCount(input: StoryGenerationInput): number {
@@ -343,7 +346,9 @@ Do not rewrite it from scratch. Follow these exact steps:
 
 4. Expand the ending by at least one additional paragraph of quiet reflection. Do not restate events — show the weight of the outcome.
 
-5. Return the complete expanded draft in the same JSON format as before. The final script must be at least ${minimumWordCount} words and at least ${minimumParagraphCount} paragraphs. Do not stop before reaching both targets.
+5. The final script must be at least ${minimumWordCount} words and at least ${minimumParagraphCount} paragraphs. Do not stop before reaching both targets.
+
+Before you finish, count the words in your expanded draft. If the total is below ${minimumWordCount}, you must continue writing. Add one more paragraph developing the moment just before the ending — what the subject was thinking or deciding in the final hours. Only stop when your draft has reached at least ${minimumWordCount} words.
 
 ${targetedBeatSection}
 ${targetedBeatSection && middleBeatSection ? "\n\n" : ""}${middleBeatSection}
@@ -359,6 +364,9 @@ If the story's tension comes from institutions instead of pursuit, expand the de
 If a beat is already mentioned briefly, expand it with new detail and consequences instead of repeating the same sentence in different words.
 Preserve the strongest title ideas, but ensure every title is complete and publication-ready.
 Target: at least ${minimumWordCount} words and ${minimumParagraphCount} paragraphs.
+Do not return fewer paragraphs than the draft above already has.
+Your expanded draft must have more paragraphs than the version you are expanding. If it does not, you have not completed the expansion.
+Return the complete expanded draft in the same JSON format as before.
 `.trim();
 }
 
@@ -387,7 +395,9 @@ Target beat count: ${getTargetBeatCount(input)}
 
 Instructions:
 - Produce a numbered list only.
-- Use 12 to 20 beats.
+- You must return between 14 and 18 beats.
+- Returning fewer than 14 is a failure.
+- If the plot notes do not have 14 distinct events, infer connecting beats from the premise and theme.
 - Keep the beats chronological from opening to close.
 - Use the plot notes as your source of truth when they are present.
 - Each beat must be exactly one sentence.
@@ -459,6 +469,7 @@ async function requestExpandedStoryOutput(
   const response = await openai.chat.completions.create({
     model: STORY_DRAFT_PROMPT.model,
     temperature: STORY_DRAFT_PROMPT.temperature,
+    max_tokens: 4000,
     response_format: { type: "json_object" },
     messages: [
       {
