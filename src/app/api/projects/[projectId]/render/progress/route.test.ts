@@ -42,6 +42,7 @@ describe("GET /api/projects/[projectId]/render/progress", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toContain("text/event-stream");
     await expect(response.text()).resolves.toContain("\"status\":\"complete\"");
+    expect(mockedGetProjectById).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 when projectId is missing", async () => {

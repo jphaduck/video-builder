@@ -11,6 +11,11 @@ const mockedDeleteRenderJob = vi.fn();
 const mockedListRenderJobs = vi.fn();
 const mockedDeleteScene = vi.fn();
 const mockedDeleteTimelineDraft = vi.fn();
+const mockedAuth = vi.fn();
+
+vi.mock("@/auth", () => ({
+  auth: (...args: unknown[]) => mockedAuth(...args),
+}));
 
 vi.mock("@/modules/assets/repository", () => ({ deleteAssetCandidate: (...args: unknown[]) => mockedDeleteAssetCandidate(...args) }));
 vi.mock("@/modules/captions/repository", () => ({ deleteCaptionTrack: (...args: unknown[]) => mockedDeleteCaptionTrack(...args) }));
@@ -24,6 +29,7 @@ vi.mock("@/modules/timeline/repository", () => ({ deleteTimelineDraft: (...args:
 
 const originalCwd = process.cwd();
 let tempDir = "";
+const userId = "user-1";
 
 function createProject(): ProjectRecord {
   const now = "2026-04-09T00:00:00.000Z";
@@ -53,6 +59,7 @@ async function loadRepository() {
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockedAuth.mockResolvedValue({ user: { id: userId } });
   tempDir = await mkdtemp(path.join(os.tmpdir(), "project-repo-test-"));
   process.chdir(tempDir);
   mockedListRenderJobs.mockResolvedValue([{ id: "render-1", projectId: "project-1" }]);
@@ -68,10 +75,10 @@ describe("projects repository", () => {
     const project = createProject();
     const databasePath = path.join(tempDir, "data", "studio.db");
     const { saveProject } = await import("@/lib/projects");
-    await saveProject(project);
+    await saveProject(project, userId);
 
     const { deleteProjectById } = await loadRepository();
-    await deleteProjectById(project.id);
+    await deleteProjectById(project.id, userId);
 
     expect(mockedDeleteScene).toHaveBeenCalledTimes(2);
     expect(mockedDeleteScene).toHaveBeenCalledWith("scene-1");
@@ -87,7 +94,7 @@ describe("projects repository", () => {
   it("throws when deleting a missing project", async () => {
     const { deleteProjectById } = await loadRepository();
 
-    await expect(deleteProjectById("missing-project")).rejects.toThrow("Project not found: missing-project");
+    await expect(deleteProjectById("missing-project", userId)).rejects.toThrow("Project not found: missing-project");
     expect(mockedDeleteScene).not.toHaveBeenCalled();
     expect(mockedDeleteRenderJob).not.toHaveBeenCalled();
   });

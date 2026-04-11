@@ -25,7 +25,7 @@ describe("DELETE /api/projects/[projectId]", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ data: { deleted: true } });
-    expect(mockedDeleteProjectById).toHaveBeenCalledWith(validProjectId);
+    expect(mockedDeleteProjectById).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 when projectId is missing", async () => {

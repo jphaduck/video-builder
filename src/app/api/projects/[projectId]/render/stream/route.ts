@@ -32,9 +32,12 @@ export async function GET(_request: Request, { params }: ProjectRenderStreamRout
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    const project = await getProjectById(trimmedProjectId);
+    const project = await getProjectById(trimmedProjectId, authResult.userId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }

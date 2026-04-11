@@ -318,8 +318,9 @@ export async function createRenderJob(
   timelineDraftId: string,
   status: RenderJob["status"] = "queued",
   progressMessage: string | null = "Queued for render processing.",
+  userId: string | null = null,
 ): Promise<RenderJob> {
-  const project = await getProjectById(projectId);
+  const project = await getProjectById(projectId, userId);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
   }
@@ -338,12 +339,12 @@ export async function createRenderJob(
   };
 
   await saveRenderJob(job);
-  await saveRenderJobForProject(projectId, job.id);
+  await saveRenderJobForProject(projectId, job.id, userId);
   return job;
 }
 
 export async function renderProject(projectId: string, renderJobId?: string): Promise<string> {
-  const project = await getProjectById(projectId);
+  const project = await getProjectById(projectId, null);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
   }
@@ -379,7 +380,7 @@ export async function renderProject(projectId: string, renderJobId?: string): Pr
 
     await updateRenderJobState(activeRenderJobId, "rendering", null, null, "Finalising export...");
     await updateRenderJobState(activeRenderJobId, "complete", relativeOutputPath, null, "Render complete.");
-    await setProjectStatus(projectId, "rendered");
+    await setProjectStatus(projectId, "rendered", undefined, null);
     return relativeOutputPath;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Render failed.";

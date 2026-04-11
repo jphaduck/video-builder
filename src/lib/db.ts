@@ -14,6 +14,7 @@ type ProjectRow = {
   data: string;
   created_at: string;
   updated_at: string;
+  user_id: string;
 };
 
 mkdirSync(DATA_DIR, { recursive: true });
@@ -26,9 +27,18 @@ db.exec(`
     id TEXT PRIMARY KEY,
     data TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    user_id TEXT NOT NULL DEFAULT ''
   );
 `);
+
+try {
+  db.exec("ALTER TABLE projects ADD COLUMN user_id TEXT NOT NULL DEFAULT ''");
+} catch (error) {
+  if (!(error instanceof Error) || !error.message.includes("duplicate column name: user_id")) {
+    throw error;
+  }
+}
 
 let migrationPromise: Promise<void> | null = null;
 
@@ -47,7 +57,7 @@ export async function runMigration(): Promise<void> {
     const entries = await readdir(PROJECTS_DIR, { withFileTypes: true });
     const existingIds = getExistingProjectIds();
     const insert = db.prepare(
-      "INSERT INTO projects (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)",
+      "INSERT INTO projects (id, data, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?)",
     );
 
     let migratedCount = 0;
@@ -65,7 +75,7 @@ export async function runMigration(): Promise<void> {
         continue;
       }
 
-      insert.run(projectId, raw, parsed.createdAt ?? "", parsed.updatedAt ?? "");
+      insert.run(projectId, raw, parsed.createdAt ?? "", parsed.updatedAt ?? "", "");
       existingIds.add(projectId);
       migratedCount += 1;
     }

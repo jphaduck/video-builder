@@ -9,13 +9,22 @@ const originalCwd = process.cwd();
 
 let tempDir = "";
 const mockedGetProject = vi.fn();
+const mockedAuth = vi.fn();
 
-vi.mock("@/lib/projects", () => ({
+vi.mock("@/auth", () => ({
+  auth: (...args: unknown[]) => mockedAuth(...args),
+}));
+
+vi.mock("@/lib/project-store", () => ({
   getProject: (...args: unknown[]) => mockedGetProject(...args),
+  getProjectByAnyOwner: (...args: unknown[]) => mockedGetProject(...args),
 }));
 
 async function loadModules() {
   vi.resetModules();
+  mockedAuth.mockResolvedValue({
+    user: { id: "test-user-id", name: "Test User", email: "test@test.com" },
+  });
   const assets = await import("@/modules/assets/repository");
 
   return { assets };
@@ -95,6 +104,7 @@ describe("asset repository persistence", () => {
     const reloaded = await loadModules();
     expect(await reloaded.assets.getAssetCandidate(candidate.id)).toEqual(candidate);
     expect(await reloaded.assets.getAssetCandidatesForProject(candidate.projectId)).toEqual([candidate]);
+    expect(mockedGetProject).toHaveBeenCalledWith(candidate.projectId, "test-user-id");
   });
 
   it("does not delete files outside data/assets when metadata stores an unsafe image path", async () => {

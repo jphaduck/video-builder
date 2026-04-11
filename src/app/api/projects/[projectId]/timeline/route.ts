@@ -29,9 +29,12 @@ export async function GET(_request: Request, { params }: ProjectTimelineRouteCon
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    const project = await getProjectById(trimmedProjectId);
+    const project = await getProjectById(trimmedProjectId, authResult.userId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
@@ -58,15 +61,18 @@ export async function POST(_request: Request, { params }: ProjectTimelineRouteCo
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    const project = await getProjectById(trimmedProjectId);
+    const project = await getProjectById(trimmedProjectId, authResult.userId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
 
     const draft = await buildTimelineDraft(trimmedProjectId);
-    await setProjectStatus(trimmedProjectId, "timeline_ready", { clearRenderJobIds: true });
+    await setProjectStatus(trimmedProjectId, "timeline_ready", { clearRenderJobIds: true }, authResult.userId);
     return jsonData(draft);
   } catch (error) {
     const badRequestMessage = isPrefixedError(error, [

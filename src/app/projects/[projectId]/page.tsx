@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
+import { auth } from "@/auth";
 import { AssetPanel } from "@/components/asset-panel";
 import { CaptionPanel } from "@/components/caption-panel";
 import { NarrationPanel } from "@/components/narration-panel";
@@ -39,7 +40,8 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   noStore();
   const { projectId } = await params;
   const { draftId, compareDraftId } = await searchParams;
-  const project = await getProjectById(projectId);
+  const session = await auth();
+  const project = session?.user?.id ? await getProjectById(projectId, session.user.id) : null;
 
   if (!project) {
     notFound();

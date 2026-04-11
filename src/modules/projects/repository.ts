@@ -3,6 +3,7 @@ import "server-only";
 // Project-domain repository layer that normalizes stored records and applies script workflow mutations.
 
 import { randomUUID } from "node:crypto";
+import { auth } from "@/auth";
 import {
   createProject as createStoredProject,
   deleteProject as deleteStoredProject,
@@ -10,6 +11,7 @@ import {
   listProjects as listStoredProjects,
   updateProject as updateStoredProject,
 } from "@/lib/projects";
+import { getProjectByAnyOwner as getStoredProjectByAnyOwner, getProjectOwnerId } from "@/lib/project-store";
 import { deleteAssetCandidate } from "@/modules/assets/repository";
 import { deleteCaptionTrack } from "@/modules/captions/repository";
 import { deleteNarrationTrack } from "@/modules/narration/repository";
@@ -19,6 +21,7 @@ import { buildSceneOutline } from "@/modules/scripts/draft-utils";
 import { deleteTimelineDraft } from "@/modules/timeline/repository";
 import type {
   CreateProjectInput,
+  Project,
   ProjectMusicTrack,
   ProjectRecord,
   ProjectStatus,
@@ -26,6 +29,8 @@ import type {
   StoryDraftRecord,
 } from "@/types/project";
 import type { GeneratedStoryDraft } from "@/modules/scripts/types";
+
+type ProjectUserScope = string | null | undefined;
 
 function normalizeApprovalStatus(value: ScriptDraftApprovalStatus | undefined): ScriptDraftApprovalStatus {
   if (value === "approved" || value === "rejected") {
@@ -135,23 +140,73 @@ function removeIds(ids: string[], removedIds: string[]): string[] {
   return ids.filter((id) => !removedIdSet.has(id));
 }
 
-export async function listProjects(): Promise<ProjectRecord[]> {
-  const projects = await listStoredProjects();
+async function requireAuthenticatedUserId(): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Authentication required.");
+  }
+
+  return session.user.id;
+}
+
+async function resolveReadableUserId(userId?: string): Promise<string> {
+  if (userId !== undefined) {
+    return userId;
+  }
+
+  return requireAuthenticatedUserId();
+}
+
+async function resolveWritableUserId(projectId: string, userId: ProjectUserScope): Promise<string> {
+  if (typeof userId === "string") {
+    return userId;
+  }
+
+  if (userId === null) {
+    const ownerId = await getProjectOwnerId(projectId);
+    if (ownerId === null) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    return ownerId;
+  }
+
+  return requireAuthenticatedUserId();
+}
+
+async function updateProjectForScope(
+  projectId: string,
+  userId: ProjectUserScope,
+  updater: (project: Project) => Promise<Project> | Project,
+): Promise<ProjectRecord> {
+  const resolvedUserId = await resolveWritableUserId(projectId, userId);
+  const updatedProject = await updateStoredProject(projectId, resolvedUserId, updater);
+  return normalizeProject(updatedProject);
+}
+
+export async function listProjects(userId?: string): Promise<ProjectRecord[]> {
+  const resolvedUserId = await resolveReadableUserId(userId);
+  const projects = await listStoredProjects(resolvedUserId);
   return projects.map(normalizeProject).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function getProjectById(projectId: string): Promise<ProjectRecord | null> {
-  const project = await getStoredProject(projectId);
+export async function getProjectById(projectId: string, userId?: ProjectUserScope): Promise<ProjectRecord | null> {
+  const project =
+    userId === null
+      ? await getStoredProjectByAnyOwner(projectId)
+      : await getStoredProject(projectId, await resolveReadableUserId(userId));
   return project ? normalizeProject(project) : null;
 }
 
-export async function createProject(input: CreateProjectInput): Promise<ProjectRecord> {
-  const project = await createStoredProject(input);
+export async function createProject(input: CreateProjectInput, userId?: string): Promise<ProjectRecord> {
+  const resolvedUserId = await resolveReadableUserId(userId);
+  const project = await createStoredProject(input, resolvedUserId);
   return normalizeProject(project);
 }
 
-export async function deleteProjectById(projectId: string): Promise<void> {
-  const project = await getProjectById(projectId);
+export async function deleteProjectById(projectId: string, userId?: ProjectUserScope): Promise<void> {
+  const resolvedUserId = await resolveWritableUserId(projectId, userId);
+  const project = await getProjectById(projectId, resolvedUserId);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
   }
@@ -162,7 +217,7 @@ export async function deleteProjectById(projectId: string): Promise<void> {
   const renderJobs = await listRenderJobs(project.id);
   await Promise.all(renderJobs.map((job) => deleteRenderJob(job.id)));
 
-  await deleteStoredProject(project.id);
+  await deleteStoredProject(project.id, resolvedUserId);
 }
 
 type SaveStoryInput = {
@@ -177,8 +232,9 @@ export async function saveStoryDraftForProject(
   projectId: string,
   storyInput: SaveStoryInput,
   generatedStory: GeneratedStoryDraft,
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
     const now = new Date().toISOString();
     const storyDraftId = randomUUID();
@@ -219,8 +275,6 @@ export async function saveStoryDraftForProject(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 type SaveManualStoryDraftInput = {
@@ -234,8 +288,9 @@ type SaveManualStoryDraftInput = {
 export async function saveManualScriptDraftForProject(
   projectId: string,
   input: SaveManualStoryDraftInput,
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
     const now = new Date().toISOString();
     const storyDraftId = randomUUID();
@@ -268,12 +323,14 @@ export async function saveManualScriptDraftForProject(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function setActiveScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function setActiveScriptDraft(
+  projectId: string,
+  scriptDraftId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
     const selectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
     if (!selectedDraft) {
@@ -287,12 +344,14 @@ export async function setActiveScriptDraft(projectId: string, scriptDraftId: str
       storyDraft: selectedDraft,
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function approveScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, async (project) => {
+export async function approveScriptDraft(
+  projectId: string,
+  scriptDraftId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, async (project) => {
     const existing = normalizeProject(project);
     const approvedAt = new Date().toISOString();
     const shouldClearScenePlan = existing.workflow.sceneIds.length > 0 && existing.approvedScriptDraftId !== scriptDraftId;
@@ -334,12 +393,14 @@ export async function approveScriptDraft(projectId: string, scriptDraftId: strin
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function rejectScriptDraft(projectId: string, scriptDraftId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, async (project) => {
+export async function rejectScriptDraft(
+  projectId: string,
+  scriptDraftId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, async (project) => {
     const existing = normalizeProject(project);
     const rejectedDraft = existing.scriptDrafts.find((draft) => draft.id === scriptDraftId);
 
@@ -377,15 +438,14 @@ export async function rejectScriptDraft(projectId: string, scriptDraftId: string
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 export async function clearScenePlanForProject(
   projectId: string,
   nextStatus: ProjectStatus = "script_ready",
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, async (project) => {
+  return updateProjectForScope(projectId, userId, async (project) => {
     const existing = normalizeProject(project);
 
     await deleteDerivedArtifactsForProject(existing);
@@ -404,12 +464,14 @@ export async function clearScenePlanForProject(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function saveScenePlanForProject(projectId: string, sceneIds: string[]): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function saveScenePlanForProject(
+  projectId: string,
+  sceneIds: string[],
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -423,12 +485,10 @@ export async function saveScenePlanForProject(projectId: string, sceneIds: strin
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function approveScenePlanForProject(projectId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function approveScenePlanForProject(projectId: string, userId?: ProjectUserScope): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     if (existing.workflow.sceneIds.length === 0) {
@@ -441,12 +501,14 @@ export async function approveScenePlanForProject(projectId: string): Promise<Pro
       updatedAt: new Date().toISOString(),
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function saveNarrationTrackForProject(projectId: string, trackId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function saveNarrationTrackForProject(
+  projectId: string,
+  trackId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -459,16 +521,15 @@ export async function saveNarrationTrackForProject(projectId: string, trackId: s
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 export async function replaceNarrationTrackForProject(
   projectId: string,
   previousTrackId: string,
   nextTrackId: string,
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -481,12 +542,13 @@ export async function replaceNarrationTrackForProject(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function approveNarrationTrackForProject(projectId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function approveNarrationTrackForProject(
+  projectId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -495,12 +557,14 @@ export async function approveNarrationTrackForProject(projectId: string): Promis
       updatedAt: new Date().toISOString(),
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function saveCaptionTrackForProject(projectId: string, trackId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function saveCaptionTrackForProject(
+  projectId: string,
+  trackId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -512,12 +576,14 @@ export async function saveCaptionTrackForProject(projectId: string, trackId: str
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function saveRenderJobForProject(projectId: string, renderJobId: string): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function saveRenderJobForProject(
+  projectId: string,
+  renderJobId: string,
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -529,12 +595,14 @@ export async function saveRenderJobForProject(projectId: string, renderJobId: st
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
-export async function addAssetCandidateIdsToProject(projectId: string, assetIds: string[]): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+export async function addAssetCandidateIdsToProject(
+  projectId: string,
+  assetIds: string[],
+  userId?: ProjectUserScope,
+): Promise<ProjectRecord> {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -546,8 +614,6 @@ export async function addAssetCandidateIdsToProject(projectId: string, assetIds:
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 export async function replaceAssetCandidateIdsForProject(
@@ -555,8 +621,9 @@ export async function replaceAssetCandidateIdsForProject(
   previousAssetIds: string[],
   nextAssetIds: string[],
   nextStatus?: ProjectStatus,
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
     const remainingIds = removeIds(existing.workflow.assetIds, previousAssetIds);
 
@@ -572,16 +639,15 @@ export async function replaceAssetCandidateIdsForProject(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 export async function setProjectStatus(
   projectId: string,
   status: ProjectStatus,
   options?: { clearRenderJobIds?: boolean; imagePlanApprovedAt?: string | null },
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -598,16 +664,15 @@ export async function setProjectStatus(
       },
     };
   });
-
-  return normalizeProject(updatedProject);
 }
 
 export async function saveMusicSettingsForProject(
   projectId: string,
   musicTrack: ProjectMusicTrack,
   musicVolume?: number,
+  userId?: ProjectUserScope,
 ): Promise<ProjectRecord> {
-  const updatedProject = await updateStoredProject(projectId, (project) => {
+  return updateProjectForScope(projectId, userId, (project) => {
     const existing = normalizeProject(project);
 
     return {
@@ -618,6 +683,4 @@ export async function saveMusicSettingsForProject(
         typeof musicVolume === "number" ? Math.min(Math.max(musicVolume, 0), 1) : existing.musicVolume ?? 0.08,
     };
   });
-
-  return normalizeProject(updatedProject);
 }

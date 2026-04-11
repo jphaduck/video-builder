@@ -109,8 +109,8 @@ export async function getLatestJobForProject(projectId: string): Promise<RenderJ
   return getRenderJob(latestEntry.jobId);
 }
 
-export async function enqueueRender(projectId: string): Promise<string> {
-  const project = await getProjectById(projectId);
+export async function enqueueRender(projectId: string, userId?: string | null): Promise<string> {
+  const project = await getProjectById(projectId, userId);
   if (!project) {
     throw new Error(`Project not found: ${projectId}`);
   }
@@ -131,7 +131,7 @@ export async function enqueueRender(projectId: string): Promise<string> {
       return existingActiveJob.jobId;
     }
 
-    const job = await createRenderJob(projectId, timelineDraft.id, "queued", "Queued for render processing.");
+    const job = await createRenderJob(projectId, timelineDraft.id, "queued", "Queued for render processing.", userId);
     await writeQueueState({
       jobs: [
         ...state.jobs,

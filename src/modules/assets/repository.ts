@@ -5,7 +5,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getProject } from "@/lib/projects";
+import { auth } from "@/auth";
+import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import type { AssetCandidate } from "@/modules/assets/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -109,7 +110,10 @@ export async function getAssetCandidate(assetId: string): Promise<AssetCandidate
 }
 
 export async function getAssetCandidatesForProject(projectId: string): Promise<AssetCandidate[]> {
-  const project = await getProject(projectId);
+  const session = await auth();
+  const project = session?.user?.id
+    ? await getProject(projectId, session.user.id)
+    : await getProjectByAnyOwner(projectId);
   if (!project) {
     return [];
   }

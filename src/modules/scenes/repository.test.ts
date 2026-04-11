@@ -6,9 +6,15 @@ import type { Project } from "@/types/project";
 import type { Scene } from "@/types/scene";
 
 const mockedGetProject = vi.fn();
+const mockedAuth = vi.fn();
 
-vi.mock("@/lib/projects", () => ({
+vi.mock("@/auth", () => ({
+  auth: (...args: unknown[]) => mockedAuth(...args),
+}));
+
+vi.mock("@/lib/project-store", () => ({
   getProject: (...args: unknown[]) => mockedGetProject(...args),
+  getProjectByAnyOwner: (...args: unknown[]) => mockedGetProject(...args),
 }));
 
 const originalCwd = process.cwd();
@@ -64,6 +70,9 @@ function createProject(sceneIds: string[]): Project {
 
 async function loadRepository() {
   vi.resetModules();
+  mockedAuth.mockResolvedValue({
+    user: { id: "test-user-id", name: "Test User", email: "test@test.com" },
+  });
   return import("@/modules/scenes/repository");
 }
 
@@ -118,6 +127,7 @@ describe("scenes repository", () => {
     const scenes = await getScenesForProject("project-1");
 
     expect(scenes.map((scene) => scene.id)).toEqual(["scene-2", "scene-3", "scene-1"]);
+    expect(mockedGetProject).toHaveBeenCalledWith("project-1", "test-user-id");
   });
 
   it("deletes persisted scene files", async () => {

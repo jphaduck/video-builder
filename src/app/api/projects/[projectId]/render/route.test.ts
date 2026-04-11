@@ -47,6 +47,7 @@ describe("/api/projects/[projectId]/render", () => {
         renderStatus: "rendering",
       },
     });
+    expect(mockedGetProjectById).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 when projectId is missing", async () => {
@@ -123,7 +124,8 @@ describe("/api/projects/[projectId]/render", () => {
 
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ data: { ...job, jobId: "render-1" } });
-    expect(mockedSaveMusicSettingsForProject).toHaveBeenCalledWith(validProjectId, "dramatic");
+    expect(mockedSaveMusicSettingsForProject).toHaveBeenCalledWith(validProjectId, "dramatic", undefined, "test-user-id");
+    expect(mockedEnqueueRender).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 for POST when projectId is not a UUID", async () => {

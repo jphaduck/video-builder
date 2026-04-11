@@ -30,9 +30,12 @@ export async function GET(_request: Request, { params }: ProjectRenderRouteConte
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    const project = await getProjectById(trimmedProjectId);
+    const project = await getProjectById(trimmedProjectId, authResult.userId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
@@ -62,9 +65,12 @@ export async function POST(request: Request, { params }: ProjectRenderRouteConte
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    const project = await getProjectById(trimmedProjectId);
+    const project = await getProjectById(trimmedProjectId, authResult.userId);
     if (!project) {
       return jsonError(PROJECT_NOT_FOUND_ERROR, 404);
     }
@@ -93,10 +99,10 @@ export async function POST(request: Request, { params }: ProjectRenderRouteConte
     }
 
     if (musicTrack) {
-      await saveMusicSettingsForProject(trimmedProjectId, musicTrack);
+      await saveMusicSettingsForProject(trimmedProjectId, musicTrack, undefined, authResult.userId);
     }
 
-    const jobId = await enqueueRender(trimmedProjectId);
+    const jobId = await enqueueRender(trimmedProjectId, authResult.userId);
     const job = await getJobStatus(jobId);
 
     return jsonData(job ? { ...job, jobId } : { jobId, status: "queued" }, { status: 202 });

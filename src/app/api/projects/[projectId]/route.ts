@@ -28,9 +28,12 @@ export async function DELETE(_request: Request, { params }: ProjectRouteContext)
   if (authResult.response) {
     return authResult.response;
   }
+  if (!authResult.userId) {
+    return jsonError("Authentication required.", 401);
+  }
 
   try {
-    await deleteProjectById(trimmedProjectId);
+    await deleteProjectById(trimmedProjectId, authResult.userId);
     return jsonData({ deleted: true });
   } catch (error) {
     const notFoundMessage = isPrefixedError(error, ["Project not found:"]);

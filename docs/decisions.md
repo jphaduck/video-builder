@@ -235,3 +235,8 @@
 - Decision: Add NextAuth with GitHub OAuth as the first authentication mechanism, protect project pages with middleware, and require an authenticated session in project API route handlers.
 - Why: The app had no access control at all, which meant any visitor could load or mutate project state if they knew the URL.
 - Impact: Users must sign in before using project workflows, route tests now mock `auth()` explicitly, and the next access-control task is per-user project ownership rather than basic authentication.
+
+## 2026-04-11 - Project rows are now owned and filtered by authenticated user
+- Decision: Add a `user_id` column to the SQLite `projects` table and require authenticated user context for project CRUD so project rows are filtered by owner.
+- Why: Authentication alone still allowed any signed-in user to access another user's project by guessing the UUID.
+- Impact: Project pages, project API routes, and project creation/deletion/update flows now resolve against the signed-in owner and return `404` for wrong-owner access instead of revealing that the row exists.

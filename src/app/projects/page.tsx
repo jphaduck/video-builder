@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { auth } from "@/auth";
 import { ProjectDeleteButton } from "@/components/project-delete-button";
 import { listProjects } from "@/modules/projects/repository";
 
 export default async function ProjectsListPage() {
   noStore();
-  const projects = await listProjects();
+  const session = await auth();
+  const projects = session?.user?.id ? await listProjects(session.user.id) : [];
 
   return (
     <main className="container">

@@ -39,6 +39,7 @@ describe("/api/projects/[projectId]/timeline", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ data: timelineDraft });
+    expect(mockedGetProjectById).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 when projectId is missing", async () => {
@@ -111,7 +112,7 @@ describe("/api/projects/[projectId]/timeline", () => {
     expect(mockedBuildTimelineDraft).toHaveBeenCalledWith(validProjectId);
     expect(mockedSetProjectStatus).toHaveBeenCalledWith(validProjectId, "timeline_ready", {
       clearRenderJobIds: true,
-    });
+    }, "test-user-id");
   });
 
   it("returns 400 for POST when projectId is not a UUID", async () => {

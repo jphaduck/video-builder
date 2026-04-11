@@ -54,6 +54,7 @@ describe("GET /api/projects/[projectId]/render/stream", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("video/mp4");
     expect(response.headers.get("Content-Disposition")).toContain(`${validProjectId}.mp4`);
+    expect(mockedGetProjectById).toHaveBeenCalledWith(validProjectId, "test-user-id");
   });
 
   it("returns 400 when projectId is missing", async () => {

@@ -6,6 +6,8 @@ import type { Project } from "@/types/project";
 
 const originalCwd = process.cwd();
 let tempDir = "";
+const userId = "user-1";
+const otherUserId = "user-2";
 
 function createProject(id = "project-1", overrides: Partial<Project> = {}): Project {
   const now = overrides.createdAt ?? "2026-04-11T00:00:00.000Z";
@@ -54,14 +56,17 @@ describe("project store", () => {
     const older = createProject("project-1", { createdAt: "2026-04-10T00:00:00.000Z", updatedAt: "2026-04-10T00:00:00.000Z" });
     const newer = createProject("project-2", { createdAt: "2026-04-11T00:00:00.000Z", updatedAt: "2026-04-11T00:00:00.000Z" });
 
-    await store.saveProject(older);
-    await store.saveProject(newer);
+    await store.saveProject(older, userId);
+    await store.saveProject(newer, userId);
 
-    await expect(store.getProject("project-1")).resolves.toEqual(older);
-    await expect(store.listProjects()).resolves.toMatchObject([newer, older]);
+    await expect(store.getProject("project-1", userId)).resolves.toEqual(older);
+    await expect(store.getProject("project-1", otherUserId)).resolves.toBeNull();
+    await expect(store.listProjects(userId)).resolves.toMatchObject([newer, older]);
+    await expect(store.listProjects(otherUserId)).resolves.toEqual([]);
 
-    await store.deleteProject("project-1");
-    await expect(store.getProject("project-1")).resolves.toBeNull();
+    await expect(store.deleteProject("project-1", otherUserId)).rejects.toThrow("Project not found: project-1");
+    await store.deleteProject("project-1", userId);
+    await expect(store.getProject("project-1", userId)).resolves.toBeNull();
     await expect(access(path.join(tempDir, "data", "studio.db"))).resolves.toBeUndefined();
   });
 
@@ -74,7 +79,7 @@ describe("project store", () => {
 
     const store = await loadStore();
 
-    await expect(store.getProject("legacy-project")).resolves.toEqual(legacyProject);
-    await expect(store.listProjects()).resolves.toHaveLength(1);
+    await expect(store.getProject("legacy-project", "")).resolves.toEqual(legacyProject);
+    await expect(store.listProjects("")).resolves.toHaveLength(1);
   });
 });

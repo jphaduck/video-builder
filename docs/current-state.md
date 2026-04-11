@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-All 6 roadmap milestones are complete. The next phase is production hardening: broader storage migration, per-user ownership, UI polish, stronger error handling, and better runtime ergonomics.
+All 6 roadmap milestones are complete. The next phase is production hardening: broader storage migration, deeper ownership scoping across derived artifacts, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created
@@ -15,6 +15,7 @@ What exists:
   - load project detail at `/projects/[projectId]`
   - delete a project from `/projects`, including cleanup of its persisted derived artifacts
   - GitHub OAuth authentication via NextAuth protects project pages and project APIs, with a signed-in header showing the current user plus sign-in/sign-out controls
+  - project rows in SQLite are now owned by `user_id`, and project list/load/delete/update flows are scoped to the signed-in user so guessed project IDs resolve as not found for other accounts
 - script workflow for saved projects:
   - structured story input fields on project detail page (theme, premise, plot notes, target runtime, tone)
   - modular script service for story draft generation
@@ -106,17 +107,17 @@ What exists:
 
 What does not exist yet:
 - editable timeline controls
-- per-user project ownership or user-scoped queries
+- per-user ownership enforcement for all derived artifact stores beyond the core project row
 - migrate scene, asset, narration, caption, timeline, and render stores off per-file JSON
 - replace bundled placeholder ambient tracks with production-ready licensed music
 - broader UI polish and error-handling improvements
 
 Current priority:
-Polish the now-complete pipeline for production use, starting with per-user ownership on top of the new auth layer, broader storage migration, better review UX, and more production-ready rendering ergonomics.
+Polish the now-complete pipeline for production use, starting with broader storage migration, deeper ownership scoping across derived artifact stores, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
 1. replace the remaining per-file workflow stores with database-backed persistence
-2. add per-user project ownership and user-scoped project queries
+2. extend ownership enforcement from projects to scenes, assets, narration, captions, timeline, and render artifacts
 3. improve UI polish, real-time render progress, and failure recovery
 
 Files to read first next session:
