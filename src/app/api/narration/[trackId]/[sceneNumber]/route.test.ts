@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
+import { mockAuth, mockUnauthenticated } from "@/test/auth-mock";
 
 const mockedCreateReadStream = vi.fn();
 const mockedAccess = vi.fn();
 const mockedStat = vi.fn();
+const mockedGetNarrationTrack = vi.fn();
 
 vi.mock("node:fs", () => ({
   default: {
@@ -27,12 +29,22 @@ vi.mock("node:fs/promises", () => ({
   stat: (...args: unknown[]) => mockedStat(...args),
 }));
 
+vi.mock("@/modules/narration/repository", () => ({
+  getNarrationTrack: (...args: unknown[]) => mockedGetNarrationTrack(...args),
+}));
+
 describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
+    mockAuth();
     mockedAccess.mockResolvedValue(undefined);
     mockedStat.mockResolvedValue({ size: 5 });
     mockedCreateReadStream.mockReturnValue(Readable.from(["audio"]));
+    mockedGetNarrationTrack.mockResolvedValue({
+      id: "123e4567-e89b-42d3-a456-426614174000",
+      projectId: "project-1",
+    });
   });
 
   afterEach(() => {
@@ -70,6 +82,32 @@ describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
     await expect(response.json()).resolves.toEqual({ error: "Narration audio not found." });
   });
 
+  it("returns 404 when the narration track belongs to a different user", async () => {
+    mockedGetNarrationTrack.mockResolvedValue(null);
+
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Narration audio not found." });
+  });
+
+  it("returns 401 when the request is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { GET } = await import("@/app/api/narration/[trackId]/[sceneNumber]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ trackId: "123e4567-e89b-42d3-a456-426614174000", sceneNumber: "2" }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
+    expect(mockedGetNarrationTrack).not.toHaveBeenCalled();
+  });
+
   it("returns 500 for unexpected filesystem failures", async () => {
     mockedStat.mockRejectedValue(new Error("boom"));
 
@@ -90,6 +128,7 @@ describe("GET /api/narration/[trackId]/[sceneNumber]", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("audio/mpeg");
+    expect(mockedGetNarrationTrack).toHaveBeenCalledWith("123e4567-e89b-42d3-a456-426614174000");
     expect(mockedCreateReadStream).toHaveBeenCalledTimes(1);
     expect(mockedStat).toHaveBeenCalledTimes(1);
   });

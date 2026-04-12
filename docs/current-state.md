@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-All 6 roadmap milestones are complete. The next phase is production hardening: deeper ownership scoping across derived artifacts, binary artifact storage strategy, UI polish, stronger error handling, and better runtime ergonomics.
+All 6 roadmap milestones are complete. The next phase is production hardening: binary artifact storage strategy, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created
@@ -49,6 +49,7 @@ What exists:
   - 2 locally persisted image candidates per scene with single-selection review controls
   - per-scene selected-image approve/reject controls and project-level image-plan approval
   - image file route for browser thumbnails via `/api/assets/[assetId]`
+  - asset metadata and image reads now verify ownership through the parent project, so guessed asset IDs resolve as not found for other signed-in users
   - image plan reaches `images_ready` only when every approved scene has one selected and approved image
   - asset cleanup now ignores persisted image paths outside `data/assets`, preventing poisoned metadata from deleting arbitrary repo files during regeneration or project deletion
   - regenerating or re-selecting images invalidates downstream timeline/render artifacts without touching scenes, narration, or captions
@@ -57,17 +58,20 @@ What exists:
   - one MP3 file per scene stored on disk in `data/narration/{trackId}/scene-{sceneNumber}.mp3`
   - narration track metadata stored in the SQLite `narration_tracks` table
   - MP3 duration measurement stored as `measuredDurationSeconds` per scene and used for timeline/caption offset math
-  - hardened narration playback route with UUID/integer validation, async streaming, and 400/404 handling
+  - hardened narration playback route with UUID/integer validation, authenticated async streaming, and 400/404 handling
+  - narration track metadata and per-scene audio reads now verify ownership through the parent project, so guessed track IDs resolve as not found for other signed-in users
   - review UI with voice selection, speed control, pronunciation overrides, per-scene audio playback, approve/reject, and full-track regeneration
 - captions workflow for approved narration tracks:
   - caption generation from narration audio via Whisper word timestamps
   - caption chunking into readable segments with cumulative offsets based on measured narration durations
   - caption tracks stored in the SQLite `caption_tracks` table
+  - caption track reads now verify ownership through the parent project
   - SRT and VTT subtitle exports written to `data/captions/{captionTrackId}.srt` and `.vtt`
   - inline caption text and timing edits that regenerate the export sidecars
   - stale-caption detection when the latest caption track no longer matches the latest narration track
 - timeline workflow:
   - timeline drafts stored in the SQLite `timelines` table
+  - timeline draft reads now verify ownership through the parent project
   - timeline assembly from the latest saved scenes, still-image assets, approved narration track, and current caption track
   - timeline build/rebuild action plus `GET` / `POST` route at `/api/projects/[projectId]/timeline`
   - read-only timeline review panel on the project detail page with scene heading, thumbnail/placeholder, narration duration, caption preview, and cumulative start offset
@@ -81,6 +85,7 @@ What exists:
   - FFmpeg-based slideshow rendering that holds each scene still for its narration duration, merges per-scene narration into one audio track, optionally mixes a bundled ambient music bed underneath it, and burns captions directly into the video
   - Sharp-generated 1920x1080 placeholder images when no approved still exists for a scene
   - render requests are enqueued and processed by a lightweight file-backed worker instead of a floating in-process promise, so queued/running jobs survive process restarts
+  - render job and output reads now verify ownership through the parent project, so wrong-owner access collapses to project-not-found / artifact-not-found responses
   - async render start/status route at `/api/projects/[projectId]/render`
   - SSE progress route at `/api/projects/[projectId]/render/progress` for live render status and stage messages
   - browser video streaming route at `/api/projects/[projectId]/render/stream`
@@ -105,21 +110,21 @@ What exists:
   - reusable live script evaluation harness under `npm run eval:scripts`, with JSON reports that now calculate `passRate` from passed rows in `results`, `retryRate` from retry-triggered rows, and `retrySuccessRate` from successful retries
   - git now ignores generated artifacts across all `data/` workflow directories while tracking `.gitkeep` placeholders so the local folder structure remains intact
   - metadata for projects, scenes, assets, narration tracks, caption tracks, timelines, and render jobs now migrates into SQLite on startup when legacy JSON rows are found on disk
+  - repository and route coverage now includes wrong-owner artifact access paths, bringing the suite to 150 tests across 31 files
 
 What does not exist yet:
 - editable timeline controls
-- per-user ownership enforcement for all derived artifact stores beyond the core project row
 - replace bundled placeholder ambient tracks with production-ready licensed music
 - replace local binary artifact storage with cloud/object storage
 - broader UI polish and error-handling improvements
 
 Current priority:
-Polish the now-complete pipeline for production use, starting with deeper ownership scoping across derived artifacts, a better binary artifact storage strategy, better review UX, and more production-ready rendering ergonomics.
+Polish the now-complete pipeline for production use, starting with a better binary artifact storage strategy, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
-1. extend ownership enforcement from projects to scenes, assets, narration, captions, timeline, and render artifacts
-2. replace local binary artifact storage with cloud/object storage where appropriate
-3. improve UI polish, render failure recovery, and overall production ergonomics
+1. replace local binary artifact storage with cloud/object storage where appropriate
+2. improve UI polish, render failure recovery, and overall production ergonomics
+3. add editable timeline controls for post-generation polish
 
 Files to read first next session:
 - AGENTS.md

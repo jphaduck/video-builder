@@ -98,6 +98,17 @@ describe("asset repository persistence", () => {
     expect((await assets.listAssetCandidates()).map((asset) => asset.id)).toEqual(["asset-1", "asset-2"]);
   });
 
+  it("returns null when the asset belongs to a different user's project", async () => {
+    const assets = await loadRepository();
+    const imageFilePath = await assets.saveAssetImageFile("asset-1", Buffer.from("png-bytes"));
+    const candidate = createAssetCandidate(imageFilePath);
+
+    await assets.saveAssetCandidate(candidate);
+    mockedGetProject.mockResolvedValue(null);
+
+    await expect(assets.getAssetCandidate(candidate.id)).resolves.toBeNull();
+  });
+
   it("does not delete files outside data/assets when metadata stores an unsafe image path", async () => {
     const assets = await loadRepository();
     const outsideFilePath = path.join(tempDir, "outside.png");

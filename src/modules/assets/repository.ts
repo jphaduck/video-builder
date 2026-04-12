@@ -16,6 +16,11 @@ type AssetDataRow = {
   data: string;
 };
 
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
+
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
@@ -99,16 +104,19 @@ export async function getAssetCandidate(assetId: string): Promise<AssetCandidate
   await ensureAssetStoreReady();
 
   const row = db.prepare("SELECT data FROM assets WHERE id = ?").get(assetId) as AssetDataRow | undefined;
-  return row ? parseAssetCandidate(row.data, `assets row ${assetId}`) : null;
+  if (!row) {
+    return null;
+  }
+
+  const asset = parseAssetCandidate(row.data, `assets row ${assetId}`);
+  const project = await getReadableProject(asset.projectId);
+  return project ? asset : null;
 }
 
 export async function getAssetCandidatesForProject(projectId: string): Promise<AssetCandidate[]> {
   await ensureAssetStoreReady();
 
-  const session = await auth();
-  const project = session?.user?.id
-    ? await getProject(projectId, session.user.id)
-    : await getProjectByAnyOwner(projectId);
+  const project = await getReadableProject(projectId);
   if (!project) {
     return [];
   }

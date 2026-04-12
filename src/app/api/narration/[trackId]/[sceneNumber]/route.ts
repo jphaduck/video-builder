@@ -5,6 +5,8 @@ import { Readable } from "node:stream";
 import { constants as fsConstants } from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { INTERNAL_SERVER_ERROR_MESSAGE, jsonError } from "@/app/api/_utils";
+import { auth } from "@/auth";
+import { getNarrationTrack } from "@/modules/narration/repository";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,6 +20,11 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ trackId: string; sceneNumber: string }> },
 ) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const { trackId, sceneNumber } = await params;
   const trimmedTrackId = trackId.trim();
   const trimmedSceneNumber = sceneNumber.trim();
@@ -35,6 +42,11 @@ export async function GET(
   }
 
   try {
+    const track = await getNarrationTrack(trimmedTrackId);
+    if (!track) {
+      return jsonError("Narration audio not found.", 404);
+    }
+
     await access(filePath, fsConstants.R_OK);
     const fileStats = await stat(filePath);
     const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;

@@ -9,6 +9,11 @@ type SceneDataRow = {
   data: string;
 };
 
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
+
 function parseScene(raw: string, context: string): Scene {
   try {
     return JSON.parse(raw) as Scene;
@@ -45,16 +50,19 @@ export async function getScene(sceneId: string): Promise<Scene | null> {
   await ensureSceneStoreReady();
 
   const row = db.prepare("SELECT data FROM scenes WHERE id = ?").get(sceneId) as SceneDataRow | undefined;
-  return row ? parseScene(row.data, `scenes row ${sceneId}`) : null;
+  if (!row) {
+    return null;
+  }
+
+  const scene = parseScene(row.data, `scenes row ${sceneId}`);
+  const project = await getReadableProject(scene.projectId);
+  return project ? scene : null;
 }
 
 export async function getScenesForProject(projectId: string): Promise<Scene[]> {
   await ensureSceneStoreReady();
 
-  const session = await auth();
-  const project = session?.user?.id
-    ? await getProject(projectId, session.user.id)
-    : await getProjectByAnyOwner(projectId);
+  const project = await getReadableProject(projectId);
   if (!project) {
     return [];
   }

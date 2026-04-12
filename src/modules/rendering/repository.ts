@@ -2,13 +2,20 @@ import "server-only";
 
 import { mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
+import { auth } from "@/auth";
 import { db, runMigration } from "@/lib/db";
+import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import { RENDERING_DIR, resolveRenderOutputPath } from "@/modules/rendering/paths";
 import type { RenderJob } from "@/modules/rendering/types";
 
 type RenderDataRow = {
   data: string;
 };
+
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
@@ -70,11 +77,22 @@ export async function getRenderJob(jobId: string): Promise<RenderJob | null> {
   await ensureRenderingStoreReady();
 
   const row = db.prepare("SELECT data FROM render_jobs WHERE id = ?").get(jobId) as RenderDataRow | undefined;
-  return row ? parseRenderJob(row.data, `render_jobs row ${jobId}`) : null;
+  if (!row) {
+    return null;
+  }
+
+  const job = parseRenderJob(row.data, `render_jobs row ${jobId}`);
+  const project = await getReadableProject(job.projectId);
+  return project ? job : null;
 }
 
 export async function listRenderJobs(projectId: string): Promise<RenderJob[]> {
   await ensureRenderingStoreReady();
+
+  const project = await getReadableProject(projectId);
+  if (!project) {
+    return [];
+  }
 
   const rows = db.prepare("SELECT data FROM render_jobs WHERE project_id = ?").all(projectId) as RenderDataRow[];
   return rows

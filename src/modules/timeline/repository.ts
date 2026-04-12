@@ -1,11 +1,18 @@
 import "server-only";
 
+import { auth } from "@/auth";
 import { db, runMigration } from "@/lib/db";
+import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import type { TimelineDraft } from "@/modules/timeline/types";
 
 type TimelineDataRow = {
   data: string;
 };
+
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
 
 function parseTimelineDraft(raw: string, context: string): TimelineDraft {
   try {
@@ -39,6 +46,11 @@ export async function saveTimelineDraft(draft: TimelineDraft): Promise<void> {
 
 export async function getTimelineDraft(projectId: string): Promise<TimelineDraft | null> {
   await ensureTimelineStoreReady();
+
+  const project = await getReadableProject(projectId);
+  if (!project) {
+    return null;
+  }
 
   const row = db.prepare("SELECT data FROM timelines WHERE project_id = ?").get(projectId) as TimelineDataRow | undefined;
   return row ? parseTimelineDraft(row.data, `timelines row ${projectId}`) : null;

@@ -68,7 +68,7 @@ beforeEach(async () => {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "scenes-repo-test-"));
   process.chdir(tempDir);
   process.env.STUDIO_DB_PATH = ":memory:";
-  mockedGetProject.mockResolvedValue(null);
+  mockedGetProject.mockResolvedValue(createProject(["scene-1"]));
 });
 
 afterEach(async () => {
@@ -112,5 +112,15 @@ describe("scenes repository", () => {
 
     const { getScene } = await loadRepository();
     await expect(getScene("scene-1")).resolves.toEqual(legacyScene);
+  });
+
+  it("returns null when the scene belongs to a different user's project", async () => {
+    const { getScene, saveScene } = await loadRepository();
+    const scene = createScene();
+
+    await saveScene(scene);
+    mockedGetProject.mockResolvedValue(null);
+
+    await expect(getScene(scene.id)).resolves.toBeNull();
   });
 });

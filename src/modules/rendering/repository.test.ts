@@ -4,6 +4,18 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RenderJob } from "@/modules/rendering/types";
 
+const mockedGetProject = vi.fn();
+const mockedAuth = vi.fn();
+
+vi.mock("@/auth", () => ({
+  auth: (...args: unknown[]) => mockedAuth(...args),
+}));
+
+vi.mock("@/lib/project-store", () => ({
+  getProject: (...args: unknown[]) => mockedGetProject(...args),
+  getProjectByAnyOwner: (...args: unknown[]) => mockedGetProject(...args),
+}));
+
 const originalCwd = process.cwd();
 const originalDbPath = process.env.STUDIO_DB_PATH;
 let tempDir = "";
@@ -27,15 +39,18 @@ function createJob(overrides: Partial<RenderJob> = {}): RenderJob {
 
 async function loadRepository() {
   vi.resetModules();
+  mockedAuth.mockResolvedValue({ user: { id: "test-user-id", name: "Test User", email: "test@test.com" } });
   return import("@/modules/rendering/repository");
 }
 
 beforeEach(async () => {
+  vi.clearAllMocks();
   tempDir = await mkdtemp(path.join(os.tmpdir(), "render-repo-test-"));
   repoDir = path.join(tempDir, "repo");
   await mkdir(repoDir, { recursive: true });
   process.chdir(repoDir);
   process.env.STUDIO_DB_PATH = ":memory:";
+  mockedGetProject.mockResolvedValue({ id: "project-1" });
 });
 
 afterEach(async () => {
@@ -87,5 +102,17 @@ describe("rendering repository", () => {
 
     expect(await repo.getRenderJob("render-1")).toBeNull();
     await expect(access(outsideFilePath)).resolves.toBeUndefined();
+  });
+
+  it("returns null for a render job owned by a different user and omits it from project listings", async () => {
+    const repo = await loadRepository();
+    const job = createJob();
+
+    await repo.saveRenderJob(job);
+    mockedGetProject.mockResolvedValue(null);
+
+    await expect(repo.getRenderJob(job.id)).resolves.toBeNull();
+    await expect(repo.listRenderJobs(job.projectId)).resolves.toEqual([]);
+    await expect(repo.getLatestRenderJobForProject(job.projectId)).resolves.toBeNull();
   });
 });

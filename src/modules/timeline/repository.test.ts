@@ -4,6 +4,18 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TimelineDraft } from "@/modules/timeline/types";
 
+const mockedGetProject = vi.fn();
+const mockedAuth = vi.fn();
+
+vi.mock("@/auth", () => ({
+  auth: (...args: unknown[]) => mockedAuth(...args),
+}));
+
+vi.mock("@/lib/project-store", () => ({
+  getProject: (...args: unknown[]) => mockedGetProject(...args),
+  getProjectByAnyOwner: (...args: unknown[]) => mockedGetProject(...args),
+}));
+
 const originalCwd = process.cwd();
 const originalDbPath = process.env.STUDIO_DB_PATH;
 let tempDir = "";
@@ -51,13 +63,16 @@ function createDraft(overrides: Partial<TimelineDraft> = {}): TimelineDraft {
 
 async function loadRepository() {
   vi.resetModules();
+  mockedAuth.mockResolvedValue({ user: { id: "test-user-id", name: "Test User", email: "test@test.com" } });
   return import("@/modules/timeline/repository");
 }
 
 beforeEach(async () => {
+  vi.clearAllMocks();
   tempDir = await mkdtemp(path.join(os.tmpdir(), "timeline-repo-test-"));
   process.chdir(tempDir);
   process.env.STUDIO_DB_PATH = ":memory:";
+  mockedGetProject.mockResolvedValue({ id: "project-1" });
 });
 
 afterEach(async () => {
@@ -87,5 +102,15 @@ describe("timeline repository", () => {
 
     const repo = await loadRepository();
     await expect(repo.getTimelineDraft(draft.projectId)).resolves.toEqual(draft);
+  });
+
+  it("returns null when the timeline belongs to a different user's project", async () => {
+    const repo = await loadRepository();
+    const draft = createDraft();
+
+    await repo.saveTimelineDraft(draft);
+    mockedGetProject.mockResolvedValue(null);
+
+    await expect(repo.getTimelineDraft(draft.projectId)).resolves.toBeNull();
   });
 });

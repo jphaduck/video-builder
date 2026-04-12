@@ -4,6 +4,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 import { INTERNAL_SERVER_ERROR_MESSAGE, jsonError } from "@/app/api/_utils";
+import { auth } from "@/auth";
 import { getAssetCandidate } from "@/modules/assets/repository";
 
 const UUID_PATTERN =
@@ -25,6 +26,11 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ assetId: string }> },
 ) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return jsonError("Authentication required.", 401);
+  }
+
   const { assetId } = await params;
   const trimmedAssetId = assetId.trim();
 

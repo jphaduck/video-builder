@@ -3,7 +3,9 @@ import "server-only";
 import { mkdir, unlink, rename, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { auth } from "@/auth";
 import { db, runMigration } from "@/lib/db";
+import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import type { CaptionTrack } from "@/types/caption";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -12,6 +14,11 @@ const CAPTIONS_DIR = path.join(DATA_DIR, "captions");
 type CaptionDataRow = {
   data: string;
 };
+
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
@@ -61,7 +68,13 @@ export async function getCaptionTrack(trackId: string): Promise<CaptionTrack | n
   await ensureCaptionStoreReady();
 
   const row = db.prepare("SELECT data FROM caption_tracks WHERE id = ?").get(trackId) as CaptionDataRow | undefined;
-  return row ? parseCaptionTrack(row.data, `caption_tracks row ${trackId}`) : null;
+  if (!row) {
+    return null;
+  }
+
+  const track = parseCaptionTrack(row.data, `caption_tracks row ${trackId}`);
+  const project = await getReadableProject(track.projectId);
+  return project ? track : null;
 }
 
 export async function deleteCaptionTrack(trackId: string): Promise<void> {

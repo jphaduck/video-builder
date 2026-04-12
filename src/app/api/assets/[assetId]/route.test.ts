@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
+import { mockAuth, mockUnauthenticated } from "@/test/auth-mock";
 
 const mockedGetAssetCandidate = vi.fn();
 const mockedAccess = vi.fn();
@@ -30,7 +31,9 @@ vi.mock("node:fs/promises", () => ({
 
 describe("GET /api/assets/[assetId]", () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
+    mockAuth();
     mockedGetAssetCandidate.mockResolvedValue({
       id: "123e4567-e89b-42d3-a456-426614174000",
       imageFilePath: "data/assets/123e4567-e89b-42d3-a456-426614174000/image.png",
@@ -71,6 +74,32 @@ describe("GET /api/assets/[assetId]", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Asset not found." });
+  });
+
+  it("returns 404 when the asset belongs to a different user", async () => {
+    mockedGetAssetCandidate.mockResolvedValue(null);
+
+    const { GET } = await import("@/app/api/assets/[assetId]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ assetId: "123e4567-e89b-42d3-a456-426614174000" }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Asset not found." });
+  });
+
+  it("returns 401 when the request is unauthenticated", async () => {
+    vi.resetModules();
+    mockUnauthenticated();
+
+    const { GET } = await import("@/app/api/assets/[assetId]/route");
+    const response = await GET({} as never, {
+      params: Promise.resolve({ assetId: "123e4567-e89b-42d3-a456-426614174000" }),
+    });
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Authentication required." });
+    expect(mockedGetAssetCandidate).not.toHaveBeenCalled();
   });
 
   it("returns 500 for unexpected repository failures", async () => {

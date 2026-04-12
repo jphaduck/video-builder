@@ -3,7 +3,9 @@ import "server-only";
 import { mkdir, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { auth } from "@/auth";
 import { db, runMigration } from "@/lib/db";
+import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import type { NarrationTrack } from "@/types/narration";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -12,6 +14,11 @@ const NARRATION_DIR = path.join(DATA_DIR, "narration");
 type NarrationDataRow = {
   data: string;
 };
+
+async function getReadableProject(projectId: string) {
+  const session = await auth();
+  return session?.user?.id ? getProject(projectId, session.user.id) : getProjectByAnyOwner(projectId);
+}
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
@@ -96,7 +103,13 @@ export async function getNarrationTrack(trackId: string): Promise<NarrationTrack
   await ensureNarrationStoreReady();
 
   const row = db.prepare("SELECT data FROM narration_tracks WHERE id = ?").get(trackId) as NarrationDataRow | undefined;
-  return row ? parseNarrationTrack(row.data, `narration_tracks row ${trackId}`) : null;
+  if (!row) {
+    return null;
+  }
+
+  const track = parseNarrationTrack(row.data, `narration_tracks row ${trackId}`);
+  const project = await getReadableProject(track.projectId);
+  return project ? track : null;
 }
 
 export async function deleteNarrationTrack(trackId: string): Promise<void> {
