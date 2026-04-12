@@ -24,7 +24,7 @@ describe("middleware", () => {
 
   it("redirects unauthenticated project pages to sign-in", async () => {
     const middleware = (await import("@/middleware")).default;
-    const response = middleware(new NextRequest("http://localhost/projects"));
+    const response = await middleware(new NextRequest("http://localhost/projects"), {} as never);
 
     expect(response?.status).toBe(307);
     expect(response?.headers.get("location")).toBe("http://localhost/api/auth/signin");
@@ -32,7 +32,7 @@ describe("middleware", () => {
 
   it("redirects unauthenticated project APIs to sign-in", async () => {
     const middleware = (await import("@/middleware")).default;
-    const response = middleware(new NextRequest("http://localhost/api/projects/test"));
+    const response = await middleware(new NextRequest("http://localhost/api/projects/test"), {} as never);
 
     expect(response?.status).toBe(307);
     expect(response?.headers.get("location")).toBe("http://localhost/api/auth/signin");
@@ -40,7 +40,7 @@ describe("middleware", () => {
 
   it("allows the homepage without a session", async () => {
     const middleware = (await import("@/middleware")).default;
-    const response = middleware(new NextRequest("http://localhost/"));
+    const response = await middleware(new NextRequest("http://localhost/"), {} as never);
 
     expect(response).toBeUndefined();
   });
@@ -49,14 +49,14 @@ describe("middleware", () => {
     authState.session = { user: { id: "user-1" } };
 
     const middleware = (await import("@/middleware")).default;
-    const response = middleware(new NextRequest("http://localhost/projects"));
+    const response = await middleware(new NextRequest("http://localhost/projects"), {} as never);
 
     expect(response).toBeUndefined();
   });
 
   it("allows auth endpoints without a session", async () => {
     const middleware = (await import("@/middleware")).default;
-    const response = middleware(new NextRequest("http://localhost/api/auth/signin"));
+    const response = await middleware(new NextRequest("http://localhost/api/auth/signin"), {} as never);
 
     expect(response).toBeUndefined();
   });

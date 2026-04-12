@@ -1,105 +1,39 @@
 # PLAN.md
 
-Current milestone:
-All 5 product milestones are complete
+## Phase 1: Core pipeline — COMPLETE
 
-## Milestone 1: Project persistence
-Status: complete
+All 5 product milestones are complete. The full pipeline works end to end:
+script → scenes → images → narration → captions → timeline → MP4 render.
 
-Goal:
-Allow users to create, save, load, list, and delete projects.
+137 tests across 29 test files. Script generation held at 88% pass rate in the
+latest focused 25-run evaluation after retry hardening. A larger full-batch rerun
+is still warranted before treating script quality as fully closed.
 
-Acceptance criteria:
-- A user can create a new project from `/projects/new`
-- A project is saved in persistent storage
-- A saved project can be loaded at `/projects/[projectId]`
-- A project list page exists
-- A project can be deleted cleanly with derived artifact cleanup
+## Phase 2: Production hardening — IN PROGRESS
 
-Validation:
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- manually create, reload, list, and delete a project
+### Authentication — COMPLETE
+* NextAuth with GitHub OAuth
+* All project pages and project API routes protected
+* Projects scoped to authenticated user
 
-## Milestone 2: Story engine and review
-Status: complete
+### Storage — IN PROGRESS
+* SQLite via better-sqlite3 replaces file-based JSON for projects
+* Project ownership is enforced in SQLite with `user_id`
+* Render job queue persists to disk and survives process restarts
+* Scenes, assets, narration, captions, timeline, and render metadata are still file-backed
 
-Goal:
-Generate, review, edit, compare, and approve story drafts before downstream work begins.
+### Remaining for production deployment
+* Replace remaining file-backed workflow stores with SQLite or cloud storage
+* Extend ownership enforcement from the project row to all derived artifacts
+* Docker container with FFmpeg bundled
+* CI/CD pipeline
+* Replace placeholder ambient audio with real licensed music tracks
+* Continue tightening script generation quality beyond the current focused-eval baseline
 
-Acceptance criteria:
-- Input fields for theme, premise, plot notes, runtime, and tone
-- A service layer that creates structured story output
-- Output saved to the project with version history
-- User can switch active drafts, manually edit into a new version, and explicitly approve/reject a draft
-- Scene planning remains locked until a script draft is approved
+## Phase 3: Deployment — NOT STARTED
 
-Validation:
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- manually generate, edit, compare, reject, and approve drafts for a test project
-
-## Milestone 3: Scene and image planning
-Status: complete
-
-Goal:
-Turn the approved script into editable scenes and reviewed still-image selections.
-
-Acceptance criteria:
-- Scene records include script excerpt, duration target, visual intent, and image prompt
-- User can edit/regenerate scenes and regenerate image prompts
-- Scene plan requires explicit approval
-- Image candidates are generated per approved scene, persisted locally, and reviewed with selection + approval controls
-- Project-level image plan approval unlocks downstream stages
-
-Validation:
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- manually generate and approve a scene plan, then generate and approve still images
-
-## Milestone 4: Voice and captions
-Status: complete
-
-Goal:
-Generate narration audio and timed captions from the approved scenes.
-
-Acceptance criteria:
-- Narration can be generated, played back, regenerated, and approved
-- Caption segments are generated from narration audio and persisted
-- UI displays real voice and caption sections with review/edit controls
-- Subtitle sidecars are exported
-
-Validation:
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- manually generate approved narration and captions for a test project
-
-## Milestone 5: Timeline and render pipeline
-Status: complete
-
-Goal:
-Assemble the approved project into a reviewable timeline and export a final MP4.
-
-Acceptance criteria:
-- Timeline draft builds from scenes, selected images, narration, and captions
-- Timeline review is visible on the project detail page
-- Render jobs can be started, tracked, and completed
-- Final video is playable locally and downloadable from the app
-
-Validation:
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- manually build a timeline and render one test video successfully
-
-## Next phase
-
-- Production storage backend (replace file-based JSON)
-- User authentication
-- UI polish and error handling improvements
-- Real-time render progress (websocket or SSE instead of polling)
-- Music/background audio layer in render pipeline
+* Containerize with Docker
+* CI/CD with GitHub Actions
+* Cloud file storage (S3 or R2) for generated MP3/PNG/MP4 files
+* Deploy to a platform that supports long-running processes
+  (Render, Railway, or Fly.io — not Vercel, which does not support FFmpeg)

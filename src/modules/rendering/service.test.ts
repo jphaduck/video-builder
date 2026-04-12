@@ -41,15 +41,16 @@ class MockFfmpegCommand {
   });
 }
 
-const mockedFfmpeg = vi.fn(() => new MockFfmpegCommand());
-mockedFfmpeg.setFfmpegPath = vi.fn();
+const mockedFfmpeg = Object.assign(vi.fn(() => new MockFfmpegCommand()), {
+  setFfmpegPath: vi.fn(),
+});
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   return {
     ...actual,
     default: {
-      ...actual.default,
+      ...actual,
       existsSync: (...args: unknown[]) => mockedExistsSync(...args),
     },
     existsSync: (...args: unknown[]) => mockedExistsSync(...args),

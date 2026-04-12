@@ -118,7 +118,7 @@ Polish the now-complete pipeline for production use, starting with broader stora
 Next 3 tasks:
 1. replace the remaining per-file workflow stores with database-backed persistence
 2. extend ownership enforcement from projects to scenes, assets, narration, captions, timeline, and render artifacts
-3. improve UI polish, real-time render progress, and failure recovery
+3. improve UI polish, render failure recovery, and overall production ergonomics
 
 Files to read first next session:
 - AGENTS.md

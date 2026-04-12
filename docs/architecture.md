@@ -15,7 +15,7 @@ project -> script -> scenes -> assets -> narration -> captions -> timeline -> re
 ## Current implementation
 - Next.js App Router renders the product pages and forms
 - Server-side mutations currently use server actions for simple form submissions
-- Early milestone persistence uses local JSON files in `data/projects/{projectId}.json`
+- Project persistence now uses SQLite at `data/studio.db`, storing each project row as a JSON blob plus ownership metadata
 - The low-level persistence boundary lives in `src/lib/projects.ts`
 - Feature-specific orchestration sits in module folders such as `src/modules/projects` and `src/modules/scripts`
 - Timeline drafts, caption sidecars, narration tracks, render jobs, and final MP4 exports are also stored locally under `data/`
@@ -30,11 +30,12 @@ For generation-heavy features, the canonical server boundary is:
 Simple form flows can continue to use server actions. Longer-running AI and render work should move toward dedicated route/job boundaries as milestones advance.
 
 ## Persistence architecture
-During early milestones, project persistence is local and file-backed:
+Project persistence is now local but database-backed:
 - root data directory: `data/`
-- per-project files: `data/projects/{projectId}.json`
+- SQLite database: `data/studio.db`
+- `projects` table stores the full project JSON blob plus `created_at`, `updated_at`, and `user_id`
 
-This keeps the storage dependency-free while preserving a clear replacement seam for a future database-backed implementation.
+Derived workflow artifacts are still stored under `data/` as per-file JSON or media assets, preserving clear seams for later migration to broader database-backed or cloud-backed storage.
 
 ## Core artifacts
 - `Project`

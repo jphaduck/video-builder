@@ -30,7 +30,7 @@ What is implemented:
 * Timeline assembly with per-scene duration and caption preview
 * Video render pipeline using FFmpeg with file-backed job queue — produces a real MP4 with burned-in captions, merged narration, and optional ambient music
 * Real-time render progress via Server-Sent Events
-* 123 tests across 27 test files
+* 137 tests across 29 test files
 
 What remains for a production-ready version:
 
@@ -78,6 +78,6 @@ What remains for a production-ready version:
 
 * This is a slideshow storytelling product, not a full animation product.
 * All generation steps use real OpenAI APIs (GPT-4o, DALL-E 3, TTS, Whisper).
-* Storage is currently local/file-backed. A production backend is planned.
+* Project storage is SQLite-backed locally, while the remaining workflow artifacts are still file-backed.
 * FFmpeg must be available on the host system for rendering to work.
 * Ambient audio files in public/audio/ are sine-wave placeholders — replace with real music.
