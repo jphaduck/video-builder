@@ -5,7 +5,7 @@
 All 5 product milestones are complete. The full pipeline works end to end:
 script → scenes → images → narration → captions → timeline → MP4 render.
 
-137 tests across 29 test files. Script generation held at 88% pass rate in the
+140 tests across 31 test files. Script generation held at 88% pass rate in the
 latest focused 25-run evaluation after retry hardening. A larger full-batch rerun
 is still warranted before treating script quality as fully closed.
 
@@ -16,15 +16,15 @@ is still warranted before treating script quality as fully closed.
 * All project pages and project API routes protected
 * Projects scoped to authenticated user
 
-### Storage — IN PROGRESS
-* SQLite via better-sqlite3 replaces file-based JSON for projects
+### Storage — COMPLETE
+* SQLite via better-sqlite3 replaces file-based JSON across projects, scenes, assets, narration, captions, timelines, and render jobs
 * Project ownership is enforced in SQLite with `user_id`
 * Render job queue persists to disk and survives process restarts
-* Scenes, assets, narration, captions, timeline, and render metadata are still file-backed
+* Binary workflow artifacts (PNG, MP3, SRT/VTT, MP4) remain on the local filesystem
 
 ### Remaining for production deployment
-* Replace remaining file-backed workflow stores with SQLite or cloud storage
 * Extend ownership enforcement from the project row to all derived artifacts
+* Replace local binary artifact storage with cloud/object storage where appropriate
 * Docker container with FFmpeg bundled
 * CI/CD pipeline
 * Replace placeholder ambient audio with real licensed music tracks

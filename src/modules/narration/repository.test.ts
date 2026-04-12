@@ -1,18 +1,12 @@
+import { access, mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { NarrationTrack } from "@/types/narration";
 
-const fs = vi.hoisted(() => ({
-  mkdir: vi.fn(),
-  readFile: vi.fn(),
-  readdir: vi.fn(),
-  rename: vi.fn(),
-  rm: vi.fn(),
-  unlink: vi.fn(),
-  writeFile: vi.fn(),
-}));
-
-vi.mock("node:fs/promises", () => ({ ...fs, default: fs }));
+const originalCwd = process.cwd();
+const originalDbPath = process.env.STUDIO_DB_PATH;
+let tempDir = "";
 
 function createTrack(): NarrationTrack {
   return {
@@ -48,23 +42,22 @@ async function loadRepository() {
   return import("@/modules/narration/repository");
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fs.mkdir.mockResolvedValue(undefined);
-  fs.writeFile.mockResolvedValue(undefined);
-  fs.rename.mockResolvedValue(undefined);
-  fs.readFile.mockResolvedValue("");
-  fs.readdir.mockResolvedValue([]);
-  fs.rm.mockResolvedValue(undefined);
-  fs.unlink.mockResolvedValue(undefined);
-  vi.spyOn(console, "warn").mockImplementation(() => undefined);
+beforeEach(async () => {
+  tempDir = await mkdtemp(path.join(os.tmpdir(), "narration-repo-test-"));
+  process.chdir(tempDir);
+  process.env.STUDIO_DB_PATH = ":memory:";
+});
+
+afterEach(async () => {
+  process.chdir(originalCwd);
+  process.env.STUDIO_DB_PATH = originalDbPath;
+  await rm(tempDir, { recursive: true, force: true });
 });
 
 describe("narration repository", () => {
   it("saves a narration track and reloads the same data", async () => {
     const repo = await loadRepository();
     const track = createTrack();
-    fs.readFile.mockResolvedValueOnce(JSON.stringify(track));
 
     await repo.saveNarrationTrack(track);
     await expect(repo.getNarrationTrack(track.id)).resolves.toEqual(track);
@@ -72,35 +65,28 @@ describe("narration repository", () => {
 
   it("returns null when the track does not exist", async () => {
     const repo = await loadRepository();
-    fs.readFile.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: "ENOENT" }));
-
     await expect(repo.getNarrationTrack("missing-track")).resolves.toBeNull();
   });
 
   it("deletes metadata and tolerates missing audio files", async () => {
     const repo = await loadRepository();
     const track = createTrack();
-    fs.readFile.mockResolvedValueOnce(JSON.stringify(track));
-    fs.unlink
-      .mockRejectedValueOnce(Object.assign(new Error("missing audio"), { code: "ENOENT" }))
-      .mockResolvedValueOnce(undefined);
+    const trackDir = path.join(tempDir, "data", "narration", track.id);
+
+    await mkdir(trackDir, { recursive: true });
+    await writeFile(path.join(trackDir, "notes.txt"), "leftover", "utf8");
+    await repo.saveNarrationTrack(track);
 
     await expect(repo.deleteNarrationTrack(track.id)).resolves.toBeUndefined();
-
-    expect(fs.unlink).toHaveBeenCalledWith(path.join(process.cwd(), track.scenes[0].audioFilePath));
-    expect(fs.unlink).toHaveBeenCalledWith(path.join(process.cwd(), "data", "narration", track.id, "track.json"));
-    expect(fs.rm).toHaveBeenCalledWith(path.join(process.cwd(), "data", "narration", track.id), {
-      recursive: true,
-      force: true,
-    });
+    await expect(repo.getNarrationTrack(track.id)).resolves.toBeNull();
+    await expect(access(trackDir)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("saves scene audio under the track directory and returns a relative path", async () => {
     const repo = await loadRepository();
-
     const relativePath = await repo.saveSceneAudioFile("track-1", 2, Buffer.from([1, 2, 3]));
 
     expect(relativePath).toBe(path.join("data", "narration", "track-1", "scene-2.mp3"));
-    expect(fs.rename).toHaveBeenCalledWith(expect.any(String), path.join(process.cwd(), relativePath));
+    await expect(access(path.join(tempDir, relativePath))).resolves.toBeUndefined();
   });
 });

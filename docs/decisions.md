@@ -240,3 +240,8 @@
 - Decision: Add a `user_id` column to the SQLite `projects` table and require authenticated user context for project CRUD so project rows are filtered by owner.
 - Why: Authentication alone still allowed any signed-in user to access another user's project by guessing the UUID.
 - Impact: Project pages, project API routes, and project creation/deletion/update flows now resolve against the signed-in owner and return `404` for wrong-owner access instead of revealing that the row exists.
+
+## 2026-04-12 - Workflow metadata now uses SQLite instead of per-file JSON
+- Decision: Move scene, asset, narration, caption, timeline, and render-job metadata out of per-record JSON files and into SQLite tables, while keeping binary artifacts and the render queue on the local filesystem.
+- Why: After projects moved to SQLite, the remaining workflow metadata was still constrained by file-level concurrency, poor queryability, and startup migration complexity.
+- Impact: Startup now migrates legacy workflow JSON rows into SQLite automatically, repository callers keep the same interfaces, and remaining storage work is focused on binary artifacts and ownership scoping rather than JSON metadata files.

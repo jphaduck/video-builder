@@ -1,79 +1,56 @@
 import "server-only";
 
-// File-backed scene storage layer for reading and writing raw scene records in data/scenes.
-
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { auth } from "@/auth";
+import { db, runMigration } from "@/lib/db";
 import { getProject, getProjectByAnyOwner } from "@/lib/project-store";
 import type { Scene } from "@/types/scene";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const SCENES_DIR = path.join(DATA_DIR, "scenes");
+type SceneDataRow = {
+  data: string;
+};
 
-let sceneWriteQueue: Promise<unknown> = Promise.resolve();
-
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
-}
-
-function withSceneWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-  const queuedOperation = sceneWriteQueue.then(operation, operation);
-  sceneWriteQueue = queuedOperation.then(
-    () => undefined,
-    () => undefined,
-  );
-  return queuedOperation;
-}
-
-function getSceneFilePath(sceneId: string): string {
-  return path.join(SCENES_DIR, `${sceneId}.json`);
-}
-
-function parseScene(raw: string, filePath: string): Scene {
+function parseScene(raw: string, context: string): Scene {
   try {
     return JSON.parse(raw) as Scene;
   } catch (error) {
-    throw new Error(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : "unknown error"}`);
+    throw new Error(`Failed to parse ${context}: ${error instanceof Error ? error.message : "unknown error"}`);
   }
 }
 
-async function ensureScenesDirectory(): Promise<void> {
-  await mkdir(SCENES_DIR, { recursive: true });
-}
-
-async function writeSceneFile(scene: Scene): Promise<void> {
-  await ensureScenesDirectory();
-  const tempFile = path.join(SCENES_DIR, `${scene.id}.${randomUUID()}.tmp`);
-  await writeFile(tempFile, JSON.stringify(scene, null, 2), "utf8");
-  await rename(tempFile, getSceneFilePath(scene.id));
+async function ensureSceneStoreReady(): Promise<void> {
+  await runMigration();
 }
 
 export async function saveScene(scene: Scene): Promise<void> {
-  await ensureScenesDirectory();
+  await ensureSceneStoreReady();
 
-  await withSceneWriteLock(async () => {
-    await writeSceneFile(scene);
+  db.prepare(
+    `
+      INSERT INTO scenes (id, project_id, data, updated_at)
+      VALUES (@id, @project_id, @data, @updated_at)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        data = excluded.data,
+        updated_at = excluded.updated_at
+    `,
+  ).run({
+    id: scene.id,
+    project_id: scene.projectId,
+    data: JSON.stringify(scene, null, 2),
+    updated_at: scene.updatedAt,
   });
 }
 
 export async function getScene(sceneId: string): Promise<Scene | null> {
-  await ensureScenesDirectory();
+  await ensureSceneStoreReady();
 
-  try {
-    const raw = await readFile(getSceneFilePath(sceneId), "utf8");
-    return parseScene(raw, getSceneFilePath(sceneId));
-  } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") {
-      return null;
-    }
-
-    throw error;
-  }
+  const row = db.prepare("SELECT data FROM scenes WHERE id = ?").get(sceneId) as SceneDataRow | undefined;
+  return row ? parseScene(row.data, `scenes row ${sceneId}`) : null;
 }
 
 export async function getScenesForProject(projectId: string): Promise<Scene[]> {
+  await ensureSceneStoreReady();
+
   const session = await auth();
   const project = session?.user?.id
     ? await getProject(projectId, session.user.id)
@@ -82,26 +59,16 @@ export async function getScenesForProject(projectId: string): Promise<Scene[]> {
     return [];
   }
 
-  const scenes = await Promise.all(project.workflow.sceneIds.map((sceneId) => getScene(sceneId)));
+  const rows = db
+    .prepare("SELECT data FROM scenes WHERE project_id = ?")
+    .all(projectId) as SceneDataRow[];
 
-  return scenes
-    .filter((scene): scene is Scene => scene !== null)
+  return rows
+    .map((row) => parseScene(row.data, `scenes row for project ${projectId}`))
     .sort((a, b) => a.sceneNumber - b.sceneNumber || a.createdAt.localeCompare(b.createdAt));
 }
 
 export async function deleteScene(sceneId: string): Promise<void> {
-  await ensureScenesDirectory();
-
-  await withSceneWriteLock(async () => {
-    try {
-      await unlink(getSceneFilePath(sceneId));
-    } catch (error) {
-      if (isErrnoException(error) && error.code === "ENOENT") {
-        console.warn(`Scene file missing while deleting scene ${sceneId}. Continuing.`);
-        return;
-      }
-
-      throw error;
-    }
-  });
+  await ensureSceneStoreReady();
+  db.prepare("DELETE FROM scenes WHERE id = ?").run(sceneId);
 }

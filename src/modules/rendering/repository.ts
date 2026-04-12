@@ -1,30 +1,29 @@
 import "server-only";
 
-// File-backed render job storage layer for reading and writing render jobs in data/rendering.
-
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
+import { db, runMigration } from "@/lib/db";
 import { RENDERING_DIR, resolveRenderOutputPath } from "@/modules/rendering/paths";
 import type { RenderJob } from "@/modules/rendering/types";
 
-let renderWriteQueue: Promise<unknown> = Promise.resolve();
+type RenderDataRow = {
+  data: string;
+};
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
 }
 
-function withRenderWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-  const queuedOperation = renderWriteQueue.then(operation, operation);
-  renderWriteQueue = queuedOperation.then(
-    () => undefined,
-    () => undefined,
-  );
-  return queuedOperation;
+function parseRenderJob(raw: string, context: string): RenderJob {
+  try {
+    return JSON.parse(raw) as RenderJob;
+  } catch (error) {
+    throw new Error(`Failed to parse ${context}: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
 }
 
-function getRenderJobFilePath(jobId: string): string {
-  return path.join(RENDERING_DIR, `${jobId}.json`);
+async function ensureRenderingStoreReady(): Promise<void> {
+  await runMigration();
 }
 
 async function ensureRenderingDirectory(): Promise<void> {
@@ -32,12 +31,22 @@ async function ensureRenderingDirectory(): Promise<void> {
 }
 
 export async function saveRenderJob(job: RenderJob): Promise<void> {
-  await ensureRenderingDirectory();
+  await ensureRenderingStoreReady();
 
-  await withRenderWriteLock(async () => {
-    const tempFile = path.join(RENDERING_DIR, `${job.id}.${randomUUID()}.tmp`);
-    await writeFile(tempFile, JSON.stringify(job, null, 2), "utf8");
-    await rename(tempFile, getRenderJobFilePath(job.id));
+  db.prepare(
+    `
+      INSERT INTO render_jobs (id, project_id, data, updated_at)
+      VALUES (@id, @project_id, @data, @updated_at)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        data = excluded.data,
+        updated_at = excluded.updated_at
+    `,
+  ).run({
+    id: job.id,
+    project_id: job.projectId,
+    data: JSON.stringify(job, null, 2),
+    updated_at: job.updatedAt,
   });
 }
 
@@ -45,52 +54,32 @@ export async function updateRenderJob(
   jobId: string,
   updater: (job: RenderJob) => Promise<RenderJob> | RenderJob,
 ): Promise<RenderJob> {
-  await ensureRenderingDirectory();
+  await ensureRenderingStoreReady();
 
-  return withRenderWriteLock(async () => {
-    const currentJob = await getRenderJob(jobId);
-    if (!currentJob) {
-      throw new Error(`Render job not found: ${jobId}`);
-    }
+  const currentJob = await getRenderJob(jobId);
+  if (!currentJob) {
+    throw new Error(`Render job not found: ${jobId}`);
+  }
 
-    const updatedJob = await updater(currentJob);
-    const tempFile = path.join(RENDERING_DIR, `${updatedJob.id}.${randomUUID()}.tmp`);
-    await writeFile(tempFile, JSON.stringify(updatedJob, null, 2), "utf8");
-    await rename(tempFile, getRenderJobFilePath(updatedJob.id));
-    return updatedJob;
-  });
+  const updatedJob = await updater(currentJob);
+  await saveRenderJob(updatedJob);
+  return updatedJob;
 }
 
 export async function getRenderJob(jobId: string): Promise<RenderJob | null> {
-  await ensureRenderingDirectory();
+  await ensureRenderingStoreReady();
 
-  try {
-    const filePath = getRenderJobFilePath(jobId);
-    const raw = await readFile(filePath, "utf8");
-    return JSON.parse(raw) as RenderJob;
-  } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") {
-      return null;
-    }
-
-    throw error;
-  }
+  const row = db.prepare("SELECT data FROM render_jobs WHERE id = ?").get(jobId) as RenderDataRow | undefined;
+  return row ? parseRenderJob(row.data, `render_jobs row ${jobId}`) : null;
 }
 
 export async function listRenderJobs(projectId: string): Promise<RenderJob[]> {
-  await ensureRenderingDirectory();
-  const entries = await readdir(RENDERING_DIR, { withFileTypes: true });
-  const jobs = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map(async (entry) => {
-        const filePath = path.join(RENDERING_DIR, entry.name);
-        const raw = await readFile(filePath, "utf8");
-        return JSON.parse(raw) as RenderJob;
-      }),
-  );
+  await ensureRenderingStoreReady();
 
-  return jobs.filter((job) => job.projectId === projectId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const rows = db.prepare("SELECT data FROM render_jobs WHERE project_id = ?").all(projectId) as RenderDataRow[];
+  return rows
+    .map((row) => parseRenderJob(row.data, `render_jobs row for project ${projectId}`))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 export async function getLatestRenderJobForProject(projectId: string): Promise<RenderJob | null> {
@@ -99,46 +88,37 @@ export async function getLatestRenderJobForProject(projectId: string): Promise<R
 }
 
 export async function deleteRenderJob(jobId: string): Promise<void> {
+  await ensureRenderingStoreReady();
   await ensureRenderingDirectory();
 
-  await withRenderWriteLock(async () => {
-    const job = await getRenderJob(jobId);
-    const cleanupPaths = new Set<string>();
+  const job = await getRenderJob(jobId);
+  const cleanupPaths = new Set<string>();
 
-    if (job) {
-      if (job.outputFilePath) {
-        const absoluteOutputPath = resolveRenderOutputPath(job.outputFilePath);
-        if (absoluteOutputPath) {
-          cleanupPaths.add(absoluteOutputPath);
-        }
-      }
-
-      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}.srt`));
-      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.mp3`));
-      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-images.txt`));
-      cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.txt`));
-    }
-
-    for (const filePath of cleanupPaths) {
-      try {
-        await unlink(filePath);
-      } catch (error) {
-        if (isErrnoException(error) && error.code === "ENOENT") {
-          continue;
-        }
-
-        throw error;
+  if (job) {
+    if (job.outputFilePath) {
+      const absoluteOutputPath = resolveRenderOutputPath(job.outputFilePath);
+      if (absoluteOutputPath) {
+        cleanupPaths.add(absoluteOutputPath);
       }
     }
 
+    cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}.srt`));
+    cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.mp3`));
+    cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-images.txt`));
+    cleanupPaths.add(path.join(RENDERING_DIR, `${job.projectId}-audio.txt`));
+  }
+
+  for (const filePath of cleanupPaths) {
     try {
-      await unlink(getRenderJobFilePath(jobId));
+      await unlink(filePath);
     } catch (error) {
       if (isErrnoException(error) && error.code === "ENOENT") {
-        return;
+        continue;
       }
 
       throw error;
     }
-  });
+  }
+
+  db.prepare("DELETE FROM render_jobs WHERE id = ?").run(jobId);
 }

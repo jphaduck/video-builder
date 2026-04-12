@@ -18,7 +18,7 @@ project -> script -> scenes -> assets -> narration -> captions -> timeline -> re
 - Project persistence now uses SQLite at `data/studio.db`, storing each project row as a JSON blob plus ownership metadata
 - The low-level persistence boundary lives in `src/lib/projects.ts`
 - Feature-specific orchestration sits in module folders such as `src/modules/projects` and `src/modules/scripts`
-- Timeline drafts, caption sidecars, narration tracks, render jobs, and final MP4 exports are also stored locally under `data/`
+- Workflow metadata now lives in SQLite, while caption sidecars, narration audio, generated images, queue state, and final MP4 exports remain under `data/`
 - Rendering runs through dedicated route handlers plus `src/modules/rendering`, with async job state persisted to disk and streamed to the UI over SSE
 
 ## Intended server architecture
@@ -35,7 +35,7 @@ Project persistence is now local but database-backed:
 - SQLite database: `data/studio.db`
 - `projects` table stores the full project JSON blob plus `created_at`, `updated_at`, and `user_id`
 
-Derived workflow artifacts are still stored under `data/` as per-file JSON or media assets, preserving clear seams for later migration to broader database-backed or cloud-backed storage.
+Derived workflow metadata now lives in SQLite tables, while generated media artifacts still live under `data/` on the local filesystem. This preserves a clear seam for later object-storage or managed-media migration without keeping JSON blobs per record on disk.
 
 ## Core artifacts
 - `Project`

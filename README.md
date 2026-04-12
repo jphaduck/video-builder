@@ -20,7 +20,7 @@ All 5 milestones are complete. The full generation pipeline works end to end:
 
 What is implemented:
 
-* Project persistence with SQLite-backed local storage
+* SQLite-backed local storage for project and workflow metadata
 * GitHub OAuth authentication with NextAuth protecting project pages and project API routes
 * Two-stage story generation (beat outline → full cinematic script) with validation, draft versioning, approve/reject gating, and manual editing
 * Scene planning with per-scene image prompt generation, regeneration, and approval
@@ -30,11 +30,11 @@ What is implemented:
 * Timeline assembly with per-scene duration and caption preview
 * Video render pipeline using FFmpeg with file-backed job queue — produces a real MP4 with burned-in captions, merged narration, and optional ambient music
 * Real-time render progress via Server-Sent Events
-* 137 tests across 29 test files
+* 140 tests across 31 test files
 
 What remains for a production-ready version:
 
-* Replace SQLite plus the remaining file-backed workflow stores with a production database/storage backend
+* Replace local SQLite and filesystem artifact storage with a production database/object-storage backend
 * Replace placeholder ambient audio with real licensed music tracks
 * UI polish and improved error messaging
 
@@ -78,6 +78,6 @@ What remains for a production-ready version:
 
 * This is a slideshow storytelling product, not a full animation product.
 * All generation steps use real OpenAI APIs (GPT-4o, DALL-E 3, TTS, Whisper).
-* Project storage is SQLite-backed locally, while the remaining workflow artifacts are still file-backed.
+* Project and workflow metadata are SQLite-backed locally. Binary artifacts still live on the local filesystem.
 * FFmpeg must be available on the host system for rendering to work.
 * Ambient audio files in public/audio/ are sine-wave placeholders — replace with real music.

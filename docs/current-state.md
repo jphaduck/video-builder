@@ -1,7 +1,7 @@
 # Current State
 
 Current phase:
-All 6 roadmap milestones are complete. The next phase is production hardening: broader storage migration, deeper ownership scoping across derived artifacts, UI polish, stronger error handling, and better runtime ergonomics.
+All 6 roadmap milestones are complete. The next phase is production hardening: deeper ownership scoping across derived artifacts, binary artifact storage strategy, UI polish, stronger error handling, and better runtime ergonomics.
 
 What exists:
 - repo created
@@ -36,13 +36,13 @@ What exists:
   - manual script editing that saves as a new version
   - explicit approve/reject gate before scene planning unlocks
 - scene planning workflow for approved scripts:
-  - persistent per-scene records stored in `data/scenes/{sceneId}.json`
+  - persistent per-scene records stored in the SQLite `scenes` table
   - AI-generated scene plan with duration targets, visual intent, image prompts, and per-scene prompt metadata
   - inline scene editing with per-scene save, regenerate, image-prompt regenerate, and full-plan regenerate actions
   - individual scene approve/reject controls
   - scene-plan invalidation deletes scene, asset, narration, and caption artifacts before clearing workflow references
 - still-image asset workflow for approved scene plans:
-  - persistent asset candidate metadata stored in `data/assets/{assetId}.json`
+  - persistent asset candidate metadata stored in the SQLite `assets` table
   - generated image files stored on disk in `data/assets/{assetId}.png`
   - OpenAI DALL-E 3 still-image generation from each approved scene's `imagePrompt`, prefixed for cinematic no-text / no-face framing
   - image downloads are saved locally on disk instead of relying on expiring provider CDN URLs
@@ -55,26 +55,26 @@ What exists:
 - narration workflow for approved scene plans:
   - per-scene narration generation using OpenAI TTS (`tts-1-hd`)
   - one MP3 file per scene stored on disk in `data/narration/{trackId}/scene-{sceneNumber}.mp3`
-  - narration track metadata stored in `data/narration/{trackId}/track.json`
+  - narration track metadata stored in the SQLite `narration_tracks` table
   - MP3 duration measurement stored as `measuredDurationSeconds` per scene and used for timeline/caption offset math
   - hardened narration playback route with UUID/integer validation, async streaming, and 400/404 handling
   - review UI with voice selection, speed control, pronunciation overrides, per-scene audio playback, approve/reject, and full-track regeneration
 - captions workflow for approved narration tracks:
   - caption generation from narration audio via Whisper word timestamps
   - caption chunking into readable segments with cumulative offsets based on measured narration durations
-  - caption tracks stored in `data/captions/{captionTrackId}.json`
+  - caption tracks stored in the SQLite `caption_tracks` table
   - SRT and VTT subtitle exports written to `data/captions/{captionTrackId}.srt` and `.vtt`
   - inline caption text and timing edits that regenerate the export sidecars
   - stale-caption detection when the latest caption track no longer matches the latest narration track
 - timeline workflow:
-  - file-backed timeline drafts stored in `data/timeline/{projectId}.json`
+  - timeline drafts stored in the SQLite `timelines` table
   - timeline assembly from the latest saved scenes, still-image assets, approved narration track, and current caption track
   - timeline build/rebuild action plus `GET` / `POST` route at `/api/projects/[projectId]/timeline`
   - read-only timeline review panel on the project detail page with scene heading, thumbnail/placeholder, narration duration, caption preview, and cumulative start offset
   - timeline build is gated on approved narration plus a current non-stale caption track
   - building a timeline draft moves the project to `timeline_ready`
 - rendering workflow:
-  - file-backed render job metadata stored in `data/rendering/{renderJobId}.json`
+  - render job metadata stored in the SQLite `render_jobs` table
   - file-backed render queue state stored in `data/rendering/queue.json`
   - temp render artifacts stored in `data/rendering/`, including merged narration audio and burned-caption `.srt`
   - final MP4 exports written to `data/renders/{projectId}.mp4`
@@ -101,23 +101,24 @@ What exists:
   - Vitest smoke/service tests and GitHub Actions CI using `npm run validate`
   - standalone typecheck now regenerates Next route/page definitions with `next typegen` first, so stale partial `.next/types` output from interrupted builds does not break repo validation
   - Next.js build tracing is pinned to the repository root so production builds do not infer `/Users/jp` from a parent lockfile in the Codex workspace
-  - focused repository/service coverage now exercises high-risk project deletion cleanup, scene/narration/caption file persistence behaviors, render-job file persistence/cleanup, and timeline draft assembly/error paths
+  - focused repository/service coverage now exercises high-risk project deletion cleanup, SQLite-backed scene/narration/caption/render metadata behaviors, and timeline draft assembly/error paths
   - reusable live script evaluation harness under `npm run eval:scripts`, with JSON reports that now calculate `passRate` from passed rows in `results`, `retryRate` from retry-triggered rows, and `retrySuccessRate` from successful retries
   - git now ignores generated artifacts across all `data/` workflow directories while tracking `.gitkeep` placeholders so the local folder structure remains intact
+  - metadata for projects, scenes, assets, narration tracks, caption tracks, timelines, and render jobs now migrates into SQLite on startup when legacy JSON rows are found on disk
 
 What does not exist yet:
 - editable timeline controls
 - per-user ownership enforcement for all derived artifact stores beyond the core project row
-- migrate scene, asset, narration, caption, timeline, and render stores off per-file JSON
 - replace bundled placeholder ambient tracks with production-ready licensed music
+- replace local binary artifact storage with cloud/object storage
 - broader UI polish and error-handling improvements
 
 Current priority:
-Polish the now-complete pipeline for production use, starting with broader storage migration, deeper ownership scoping across derived artifact stores, better review UX, and more production-ready rendering ergonomics.
+Polish the now-complete pipeline for production use, starting with deeper ownership scoping across derived artifacts, a better binary artifact storage strategy, better review UX, and more production-ready rendering ergonomics.
 
 Next 3 tasks:
-1. replace the remaining per-file workflow stores with database-backed persistence
-2. extend ownership enforcement from projects to scenes, assets, narration, captions, timeline, and render artifacts
+1. extend ownership enforcement from projects to scenes, assets, narration, captions, timeline, and render artifacts
+2. replace local binary artifact storage with cloud/object storage where appropriate
 3. improve UI polish, render failure recovery, and overall production ergonomics
 
 Files to read first next session:

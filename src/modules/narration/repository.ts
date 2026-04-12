@@ -1,43 +1,31 @@
 import "server-only";
 
-// File-backed narration storage layer for reading and writing track metadata and scene audio files in data/narration.
-
-import { mkdir, readFile, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { db, runMigration } from "@/lib/db";
 import type { NarrationTrack } from "@/types/narration";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const NARRATION_DIR = path.join(DATA_DIR, "narration");
 
-let narrationWriteQueue: Promise<unknown> = Promise.resolve();
+type NarrationDataRow = {
+  data: string;
+};
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
-}
-
-function withNarrationWriteLock<T>(operation: () => Promise<T>): Promise<T> {
-  const queuedOperation = narrationWriteQueue.then(operation, operation);
-  narrationWriteQueue = queuedOperation.then(
-    () => undefined,
-    () => undefined,
-  );
-  return queuedOperation;
 }
 
 function getNarrationTrackDir(trackId: string): string {
   return path.join(NARRATION_DIR, trackId);
 }
 
-function getNarrationTrackFilePath(trackId: string): string {
-  return path.join(getNarrationTrackDir(trackId), "track.json");
-}
-
 function getSceneAudioFilePath(trackId: string, sceneNumber: number): string {
   return path.join(getNarrationTrackDir(trackId), `scene-${sceneNumber}.mp3`);
 }
 
-function parseNarrationTrack(raw: string, filePath: string): NarrationTrack {
+function parseNarrationTrack(raw: string, context: string): NarrationTrack {
   try {
     const parsed = JSON.parse(raw) as NarrationTrack;
 
@@ -59,8 +47,12 @@ function parseNarrationTrack(raw: string, filePath: string): NarrationTrack {
         ),
     };
   } catch (error) {
-    throw new Error(`Failed to parse ${filePath}: ${error instanceof Error ? error.message : "unknown error"}`);
+    throw new Error(`Failed to parse ${context}: ${error instanceof Error ? error.message : "unknown error"}`);
   }
+}
+
+async function ensureNarrationStoreReady(): Promise<void> {
+  await runMigration();
 }
 
 async function ensureNarrationDirectory(trackId?: string): Promise<void> {
@@ -81,71 +73,67 @@ async function unlinkWithWarning(filePath: string, warningLabel: string): Promis
 }
 
 export async function saveNarrationTrack(track: NarrationTrack): Promise<void> {
-  await ensureNarrationDirectory(track.id);
+  await ensureNarrationStoreReady();
 
-  await withNarrationWriteLock(async () => {
-    const trackFilePath = getNarrationTrackFilePath(track.id);
-    const tempFilePath = path.join(getNarrationTrackDir(track.id), `track.${randomUUID()}.tmp`);
-    await writeFile(tempFilePath, JSON.stringify(track, null, 2), "utf8");
-    await rename(tempFilePath, trackFilePath);
+  db.prepare(
+    `
+      INSERT INTO narration_tracks (id, project_id, data, updated_at)
+      VALUES (@id, @project_id, @data, @updated_at)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        data = excluded.data,
+        updated_at = excluded.updated_at
+    `,
+  ).run({
+    id: track.id,
+    project_id: track.projectId,
+    data: JSON.stringify(track, null, 2),
+    updated_at: track.updatedAt,
   });
 }
 
 export async function getNarrationTrack(trackId: string): Promise<NarrationTrack | null> {
-  await ensureNarrationDirectory(trackId);
+  await ensureNarrationStoreReady();
 
-  try {
-    const filePath = getNarrationTrackFilePath(trackId);
-    const raw = await readFile(filePath, "utf8");
-    return parseNarrationTrack(raw, filePath);
-  } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") {
-      return null;
-    }
-
-    throw error;
-  }
+  const row = db.prepare("SELECT data FROM narration_tracks WHERE id = ?").get(trackId) as NarrationDataRow | undefined;
+  return row ? parseNarrationTrack(row.data, `narration_tracks row ${trackId}`) : null;
 }
 
 export async function deleteNarrationTrack(trackId: string): Promise<void> {
+  await ensureNarrationStoreReady();
   await ensureNarrationDirectory(trackId);
 
-  await withNarrationWriteLock(async () => {
-    const trackDir = getNarrationTrackDir(trackId);
-    const track = await getNarrationTrack(trackId);
-    const expectedAudioFiles =
-      track?.scenes.map((sceneAudio) => ({
-        filePath: path.join(process.cwd(), sceneAudio.audioFilePath),
-        warningLabel: `Narration audio file ${sceneAudio.audioFilePath}`,
-      })) ?? [];
+  const trackDir = getNarrationTrackDir(trackId);
+  const track = await getNarrationTrack(trackId);
+  const expectedAudioFiles =
+    track?.scenes.map((sceneAudio) => ({
+      filePath: path.join(process.cwd(), sceneAudio.audioFilePath),
+      warningLabel: `Narration audio file ${sceneAudio.audioFilePath}`,
+    })) ?? [];
 
-    for (const sceneFile of expectedAudioFiles) {
-      await unlinkWithWarning(sceneFile.filePath, sceneFile.warningLabel);
+  for (const sceneFile of expectedAudioFiles) {
+    await unlinkWithWarning(sceneFile.filePath, sceneFile.warningLabel);
+  }
+
+  try {
+    const remainingEntries = await readdir(trackDir);
+    await Promise.all(remainingEntries.map((entry) => unlink(path.join(trackDir, entry)).catch(() => undefined)));
+  } catch (error) {
+    if (!(isErrnoException(error) && error.code === "ENOENT")) {
+      throw error;
     }
+  }
 
-    await unlinkWithWarning(getNarrationTrackFilePath(trackId), `Narration track ${trackId}`);
-
-    try {
-      const remainingEntries = await readdir(trackDir);
-      await Promise.all(remainingEntries.map((entry) => unlink(path.join(trackDir, entry)).catch(() => undefined)));
-    } catch (error) {
-      if (!(isErrnoException(error) && error.code === "ENOENT")) {
-        throw error;
-      }
-    }
-
-    await rm(trackDir, { recursive: true, force: true });
-  });
+  await rm(trackDir, { recursive: true, force: true });
+  db.prepare("DELETE FROM narration_tracks WHERE id = ?").run(trackId);
 }
 
 export async function saveSceneAudioFile(trackId: string, sceneNumber: number, buffer: Buffer): Promise<string> {
   await ensureNarrationDirectory(trackId);
 
-  return withNarrationWriteLock(async () => {
-    const filePath = getSceneAudioFilePath(trackId, sceneNumber);
-    const tempFilePath = path.join(getNarrationTrackDir(trackId), `scene-${sceneNumber}.${randomUUID()}.tmp`);
-    await writeFile(tempFilePath, buffer);
-    await rename(tempFilePath, filePath);
-    return path.relative(process.cwd(), filePath);
-  });
+  const filePath = getSceneAudioFilePath(trackId, sceneNumber);
+  const tempFilePath = path.join(getNarrationTrackDir(trackId), `scene-${sceneNumber}.${randomUUID()}.tmp`);
+  await writeFile(tempFilePath, buffer);
+  await rename(tempFilePath, filePath);
+  return path.relative(process.cwd(), filePath);
 }
