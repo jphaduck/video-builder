@@ -5,7 +5,7 @@
 All 5 product milestones are complete. The full pipeline works end to end:
 script → scenes → images → narration → captions → timeline → MP4 render.
 
-140 tests across 31 test files. Script generation held at 88% pass rate in the
+150 tests across 31 test files. Script generation held at 88% pass rate in the
 latest focused 25-run evaluation after retry hardening. A larger full-batch rerun
 is still warranted before treating script quality as fully closed.
 
@@ -23,17 +23,22 @@ is still warranted before treating script quality as fully closed.
 * Binary workflow artifacts (PNG, MP3, SRT/VTT, MP4) remain on the local filesystem
 
 ### Remaining for production deployment
-* Extend ownership enforcement from the project row to all derived artifacts
 * Replace local binary artifact storage with cloud/object storage where appropriate
-* Docker container with FFmpeg bundled
-* CI/CD pipeline
 * Replace placeholder ambient audio with real licensed music tracks
 * Continue tightening script generation quality beyond the current focused-eval baseline
 
-## Phase 3: Deployment — NOT STARTED
+## Phase 3: Deployment — IN PROGRESS
 
-* Containerize with Docker
-* CI/CD with GitHub Actions
+### Containerization — IN PROGRESS
+* Dockerfile with FFmpeg bundled
+* Next.js standalone output for smaller runtime images
+* docker-compose local runtime with persistent `/app/data`
+
+### CI/CD — COMPLETE
+* GitHub Actions CI workflow runs lint, typecheck, test, and build on pushes and pull requests to `main`
+* GitHub Actions Docker workflow validates the image build on pushes to `main` and `v*` tags
+
+### Remaining deployment work
 * Cloud file storage (S3 or R2) for generated MP3/PNG/MP4 files
 * Deploy to a platform that supports long-running processes
   (Render, Railway, or Fly.io — not Vercel, which does not support FFmpeg)

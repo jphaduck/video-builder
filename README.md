@@ -1,4 +1,5 @@
 # Story Video Studio
+![CI](https://github.com/jphaduck/video-builder/actions/workflows/ci.yml/badge.svg)
 
 Story Video Studio creates YouTube-ready narrated slideshow-style story videos from a theme, premise, and plot notes.
 
@@ -30,7 +31,7 @@ What is implemented:
 * Timeline assembly with per-scene duration and caption preview
 * Video render pipeline using FFmpeg with file-backed job queue — produces a real MP4 with burned-in captions, merged narration, and optional ambient music
 * Real-time render progress via Server-Sent Events
-* 140 tests across 31 test files
+* 150 tests across 31 test files
 
 What remains for a production-ready version:
 
@@ -73,6 +74,24 @@ What remains for a production-ready version:
    * http://localhost:3000/projects
    * create a project at http://localhost:3000/projects/new
    * open the generated project detail page after saving
+
+## Run with Docker
+
+Build and start:
+
+```bash
+docker compose up --build
+```
+
+Required environment variables in `.env` or as environment:
+
+- `OPENAI_API_KEY`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+
+Data (database, audio, images, renders) is persisted in a Docker volume.
 
 ## Notes
 

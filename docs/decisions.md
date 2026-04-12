@@ -245,3 +245,13 @@
 - Decision: Move scene, asset, narration, caption, timeline, and render-job metadata out of per-record JSON files and into SQLite tables, while keeping binary artifacts and the render queue on the local filesystem.
 - Why: After projects moved to SQLite, the remaining workflow metadata was still constrained by file-level concurrency, poor queryability, and startup migration complexity.
 - Impact: Startup now migrates legacy workflow JSON rows into SQLite automatically, repository callers keep the same interfaces, and remaining storage work is focused on binary artifacts and ownership scoping rather than JSON metadata files.
+
+## 2026-04-12 - Deployment baseline is a self-hosted Docker container, not Vercel
+- Decision: Package the app as a Docker image with FFmpeg bundled, Next.js standalone output enabled, and `/app/data` persisted as a writable volume.
+- Why: The app depends on FFmpeg, SQLite file writes, and a long-running render worker, which are not a good fit for Vercel’s execution model.
+- Impact: Local and production deployment should target a container-capable host, and future CI/CD work should build and publish the image rather than assuming a serverless/Vercel runtime.
+
+## 2026-04-12 - GitHub Actions is the default validation and image-build pipeline
+- Decision: Run lint, typecheck, tests, and production build in GitHub Actions on pushes and pull requests to `main`, and run a separate Docker image build workflow on pushes to `main` and release tags.
+- Why: The repo now has a real container deployment path and enough surface area that local-only verification is not sufficient protection against regressions.
+- Impact: `main` is now guarded by CI checks in GitHub, and container regressions can be caught by the Docker workflow before any external deployment step is added.

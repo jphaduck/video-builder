@@ -111,6 +111,8 @@ What exists:
   - git now ignores generated artifacts across all `data/` workflow directories while tracking `.gitkeep` placeholders so the local folder structure remains intact
   - metadata for projects, scenes, assets, narration tracks, caption tracks, timelines, and render jobs now migrates into SQLite on startup when legacy JSON rows are found on disk
   - repository and route coverage now includes wrong-owner artifact access paths, bringing the suite to 150 tests across 31 files
+  - the repo now includes a Dockerfile, `.dockerignore`, and `docker-compose.yml` for self-hosted container deployment with FFmpeg bundled and data persisted via a mounted volume
+  - GitHub Actions now runs lint, typecheck, test, and build on pushes/pull requests to `main`, plus a separate Docker image build workflow on pushes and version tags
 
 What does not exist yet:
 - editable timeline controls

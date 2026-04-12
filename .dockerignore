@@ -1,0 +1,9 @@
+node_modules
+.next
+data/
+.env*
+!.env.example
+scripts/eval-results/
+*.db
+*.db-wal
+*.db-shm
