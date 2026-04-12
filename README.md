@@ -1,43 +1,34 @@
 # Story Video Studio
+
 ![CI](https://github.com/jphaduck/video-builder/actions/workflows/ci.yml/badge.svg)
 
 Story Video Studio creates YouTube-ready narrated slideshow-style story videos from a theme, premise, and plot notes.
 
-The app is designed to:
+## What it does
 
-* generate a title and hook
-* generate a full script for a 5 to 20 minute video
-* split the script into scenes
-* generate still images for each scene
-* generate a voiceover
-* generate captions
-* assemble the final video with motion, transitions, subtitles, music, and export
+Give it a story idea and it runs a complete automated pipeline:
 
-## Current status
+**Script** -> **Scenes** -> **Images** -> **Narration** -> **Captions** -> **Timeline** -> **Render**
 
-All 5 milestones are complete. The full generation pipeline works end to end:
+Every step has approve/reject controls, regeneration, and human review before the final MP4 is produced.
 
-**Script** → **Scenes** → **Images** → **Narration** → **Captions** → **Timeline** → **Render**
+## What is built
 
-What is implemented:
-
-* SQLite-backed local storage for project and workflow metadata
-* GitHub OAuth authentication with NextAuth protecting project pages and project API routes
-* Two-stage story generation (beat outline → full cinematic script) with validation, draft versioning, approve/reject gating, and manual editing
-* Scene planning with per-scene image prompt generation, regeneration, and approval
-* Still image generation via DALL-E 3 with 2 candidates per scene and a selection/approval flow
-* Per-scene narration via OpenAI TTS with regenerate and approve controls
-* Caption generation via Whisper with inline text and timing editing
-* Timeline assembly with per-scene duration and caption preview
-* Video render pipeline using FFmpeg with file-backed job queue — produces a real MP4 with burned-in captions, merged narration, and optional ambient music
+* Two-stage story generation (beat outline then full cinematic script) with draft versioning and approve/reject gating
+* Scene planning with per-scene image prompt generation and approval
+* Still image generation via DALL-E 3, 2 candidates per scene
+* Per-scene narration via OpenAI TTS
+* Caption generation via Whisper with timing editing
+* Timeline assembly and FFmpeg render pipeline producing a real MP4
+* Optional ambient music layer in the render
 * Real-time render progress via Server-Sent Events
+* File-backed render job queue with restart recovery
+* GitHub OAuth authentication via NextAuth
+* All project data scoped to the authenticated user
+* SQLite storage for all project and workflow metadata
+* Docker container with FFmpeg bundled
+* GitHub Actions CI pipeline
 * 150 tests across 31 test files
-
-What remains for a production-ready version:
-
-* Replace local SQLite and filesystem artifact storage with a production database/object-storage backend
-* Replace placeholder ambient audio with real licensed music tracks
-* UI polish and improved error messaging
 
 ## Run locally
 
@@ -47,10 +38,10 @@ What remains for a production-ready version:
    npm install
    ```
 
-2. Add your environment variables to `.env.local`:
+2. Add required environment variables to `.env.local`:
 
    ```
-   OPENAI_API_KEY=your_key_here
+   OPENAI_API_KEY=your_openai_api_key
    GITHUB_CLIENT_ID=your_github_oauth_app_client_id
    GITHUB_CLIENT_SECRET=your_github_oauth_app_client_secret
    NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
@@ -63,40 +54,27 @@ What remains for a production-ready version:
    npm run dev
    ```
 
-4. Validate the repo before pushing changes:
-
-   ```
-   npm run validate
-   ```
-
-5. Open:
-   * http://localhost:3000/
-   * http://localhost:3000/projects
-   * create a project at http://localhost:3000/projects/new
-   * open the generated project detail page after saving
+4. Open http://localhost:3000 and sign in with GitHub.
 
 ## Run with Docker
 
-Build and start:
-
-```bash
+```
 docker compose up --build
 ```
 
-Required environment variables in `.env` or as environment:
+Set the same environment variables in a `.env` file at the repo root.
+Data is persisted in a Docker volume.
 
-- `OPENAI_API_KEY`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL`
+## Validate before pushing
 
-Data (database, audio, images, renders) is persisted in a Docker volume.
+```
+npm run validate
+```
 
 ## Notes
 
 * This is a slideshow storytelling product, not a full animation product.
 * All generation steps use real OpenAI APIs (GPT-4o, DALL-E 3, TTS, Whisper).
-* Project and workflow metadata are SQLite-backed locally. Binary artifacts still live on the local filesystem.
-* FFmpeg must be available on the host system for rendering to work.
-* Ambient audio files in public/audio/ are sine-wave placeholders — replace with real music.
+* FFmpeg must be available on the host system when running outside Docker.
+* Ambient audio files in public/audio/ are sine-wave placeholders.
+* To deploy use Render, Railway, or Fly.io. Vercel does not support FFmpeg or long-running processes.
