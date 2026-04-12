@@ -113,6 +113,7 @@ What exists:
   - repository and route coverage now includes wrong-owner artifact access paths, bringing the suite to 150 tests across 31 files
   - the repo now includes a Dockerfile, `.dockerignore`, and `docker-compose.yml` for self-hosted container deployment with FFmpeg bundled and data persisted via a mounted volume
   - GitHub Actions now runs lint, typecheck, test, and build on pushes/pull requests to `main`, plus a separate Docker image build workflow on pushes and version tags
+  - `docs/deploy-readiness.md` now captures the current production blockers and recommends a single-instance container host with persistent storage instead of Vercel
 
 What does not exist yet:
 - editable timeline controls
